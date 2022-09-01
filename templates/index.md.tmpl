@@ -1,0 +1,99 @@
+---
+layout: ""
+page_title: "Provider: (Operating) System"
+description: |-
+  The (Operating) System Provider allows managing files, directories, packages, and services on remote servers on operating system level agent-less via SSH.
+---
+
+# (Operating) System Provider
+
+Use the (Operating) System Provider to manage files, directories, packages, and services on remote systems on operating system level. The provider connects to remote systems via SSH and operates agent-less.
+
+## Highlights
+
+- Manage files, directories, users, groups, packages, and services on remote systems
+- Connect to and authenticate with remote servers via SSH
+- No agent on remote system required
+- Seamless integration with Terraform providers of all major IaaS cloud providers
+- Support for Debian, Alpine, and Fedora Linux confirmed via acceptance test suite
+
+## Usage example
+
+The following example connects to a remote Debian system, installs the nginx web server, and subsequently enables and starts the nginx service.
+
+```terraform
+provider "system" {
+  ssh {
+    host        = "10.12.13.14"
+    port        = 22
+    user        = "root"
+    private_key = file("./root-ed25519")
+  }
+}
+
+resource "system_packages_apt" "nginx" {
+  package {
+    name = "nginx"
+  }
+}
+
+resource "system_service_systemd" "nginx" {
+  name = "nginx"
+
+  enabled = true
+  status  = "started"
+
+  depends_on = [
+    system_packages_apt.nginx
+  ]
+}
+
+```
+
+## SSH connection
+
+The SSH connection to the remote system can be established
+
+- [directly](./ssh-connect#direct-connection), or
+- [indirectly via a bastion host](./ssh-connect#proxy-bastion-host-connection)
+
+Refer to the page on [SSH connection](./ssh-connect) for details and configuration examples.
+
+## SSH authentication
+
+The provider supports the following SSH authentication methods.
+
+- [password](./ssh-auth#password)
+- [private key](./ssh-auth#private-key)
+- [ssh agent](./ssh-auth#agent)
+- user certificate
+
+The provider supports privilege escalation on the remote system via sudo.
+
+Refer to the page on [SSH authentication](./ssh-auth) for details and configuration examples.
+
+## SSH provisioner like configuration
+
+-> Prefer the recommended configuration as described in previous sections on [SSH connection](#ssh-connection) and [SSH authentication](#ssh-authentication) over the SSH provisioner like configuration. The SSH provisioner like configuration does not support all features.
+
+You may reuse your existing [Terraform SSH provisioner configuration](https://www.terraform.io/language/resources/provisioners/connection) to configure the connection to the remote system.
+
+The [connection block of the Terraform SSH provisioner](https://www.terraform.io/language/resources/provisioners/connection#connection-block) is mostly compatible to the [`connection` block](..#nestedblock--connection) of the provider.
+
+```terraform
+provider "system" {
+  connection {
+    host        = "192.168.32.4"
+    port        = 22
+    user        = "root"
+    private_key = file("./root.key")
+
+    bastion_host        = "10.12.13.14"
+    bastion_port        = 22
+    bastion_user        = "bastion"
+    bastion_private_key = file("./bastion.key")
+  }
+}
+```
+
+{{ .SchemaMarkdown | trimspace }}

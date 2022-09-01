@@ -1,0 +1,276 @@
+name: main
+
+on:
+  push:
+    paths-ignore:
+      - '.github/workflows/test-*'
+      - 'test/alpine/**'
+      - 'test/debian/**'
+      - 'test/fedora/**'
+      - 'README.md'
+  pull_request:
+    
+jobs:
+  build:
+    name: Build
+
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v3.0.2
+
+      -
+        name: Set up Go
+        uses: actions/setup-go@v3.0.0
+        with:
+          go-version: '1.18.5'
+
+      - 
+        name: Set up Go cache
+        uses: actions/cache@v3.0.2
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      
+      - 
+        name: Check Go format
+        run: |
+          gofmtout=$(gofmt -l .); [ -z "${gofmtout}" ] || { echo "Detected malformatted go files. Run 'go fmt ./..." >&2; echo $gofmtout; exit 1; }
+      
+      -
+        name: Get dependencies
+        run: |
+          go mod download
+
+      -
+        name: Setup Terraform executable cache
+        uses: actions/cache@v3.0.2
+        with:
+          path: ~/terraform/bin
+          key: ${{ runner.os }}-terraform-bin-${{ matrix.terraform_version }}
+
+      -
+        name: Download Terraform CLI
+        id: terraform_cli
+        run: |
+          mkdir -p "$HOME/terraform/bin"
+          if [ ! -f "$HOME/terraform/bin/terraform" ]; then
+            wget -O '${{ runner.temp }}/terraform_${{ matrix.terraform_version }}_linux_amd64.zip' 'https://releases.hashicorp.com/terraform/${{ matrix.terraform_version }}/terraform_${{ matrix.terraform_version }}_linux_amd64.zip'
+            unzip '${{ runner.temp }}/terraform_${{ matrix.terraform_version }}_linux_amd64.zip' -d "$HOME/terraform/bin"
+          fi
+          chmod +x "$HOME/terraform/bin/terraform"
+          $HOME/terraform/bin/terraform version
+          echo "::set-output name=path::$HOME/terraform/bin/terraform"
+
+      - 
+        name: Verify generated files
+        run: |
+          go generate ./...;
+          git diff --compact-summary --exit-code || (echo; echo "Unexpected difference in directories after code generation. Run 'go generate ./...' command and commit."; exit 1)
+
+      -
+        name: Build
+        run: |
+          go build -v .
+      
+      -
+        name: Run unit tests
+        run: |
+          go test -v ./...
+  
+  acctest:
+    name: Acceptance test (${{ matrix.target.name }})
+    
+    needs: build
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+
+    permissions:
+      contents: read
+      packages: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - 
+            name: alpine
+            image: ghcr.io/neuspaces/terraform-provider-system/alpine-acctest
+            image_tag: 13cdac2
+            test_path: test/alpine
+            host_port: 10022
+            private_key_file: root-ed25519
+            extra_run_args: --tmpfs /tmp --tmpfs /run -v /sys/fs/cgroup:/sys/fs/cgroup:ro
+          - 
+            name: debian
+            image: ghcr.io/neuspaces/terraform-provider-system/debian-acctest
+            image_tag: a7a9a60
+            test_path: test/debian
+            host_port: 11022
+            private_key_file: root-ed25519
+            extra_run_args: --tmpfs /tmp --tmpfs /run --tmpfs /run/lock --mount type=bind,source=/sys/fs/cgroup,target=/sys/fs/cgroup --cgroupns=host
+          - 
+            name: fedora
+            image: ghcr.io/neuspaces/terraform-provider-system/fedora-acctest
+            image_tag: a7a9a60
+            test_path: test/fedora
+            host_port: 12022
+            private_key_file: root-ed25519
+            extra_run_args: --tmpfs /tmp --tmpfs /run --tmpfs /run/lock --mount type=bind,source=/sys/fs/cgroup,target=/sys/fs/cgroup --cgroupns=host
+        terraform_version:
+          # - '0.14.11'
+          # - '0.15.5'
+          # - '1.0.7'
+          # - '1.1.7'
+          # - '1.1.9'
+          - '1.2.8'
+    
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v3.0.2
+      
+      - 
+        name: Context variables
+        id: vars
+        run: |
+          echo "::set-output name=os_container_name::terraform-provider-system-${{ matrix.target.name }}-${{ github.run_id }}"
+      
+      -
+        name: Set up Go
+        uses: actions/setup-go@v3.0.0
+        with:
+          go-version: '1.18.5'
+
+      - 
+        name: Set up Go cache
+        uses: actions/cache@v3.0.2
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      -
+        name: Login to GitHub Container Registry
+        uses: docker/login-action@v1.14.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      -
+        # Note: services cannot be used for the purpose of running the test os container because, required files from the repository checkout are not available at the time the service containers are started
+        name: Start ${{ matrix.target.name }} container
+        id: start_os_container
+        run: >
+          sudo chown root:root ${{ github.workspace }}/${{ matrix.target.test_path }}/${{ matrix.target.private_key_file }}.pub;
+          sudo chmod 600 ${{ matrix.target.test_path }}/${{ matrix.target.private_key_file }} ${{ matrix.target.test_path }}/${{ matrix.target.private_key_file }}.pub;
+          docker run
+          --detach
+          --rm
+          --name '${{ steps.vars.outputs.os_container_name }}'
+          --env 'SSH_ENABLE_ROOT_PASSWORD_AUTH=true'
+          --env 'SSH_ENABLE_PASSWORD_AUTH=true'
+          --env 'TCP_FORWARDING=true'
+          --publish ${{ matrix.target.host_port }}:22
+          --mount type=bind,source=${{ github.workspace }}/${{ matrix.target.test_path }}/${{ matrix.target.private_key_file }}.pub,target=/etc/authorized_keys/root,readonly
+          --mount type=bind,source=${{ github.workspace }}/${{ matrix.target.test_path }}/hostkeys,target=/etc/ssh/keys
+          ${{ matrix.target.extra_run_args }}
+          ${{ matrix.target.image }}:${{ matrix.target.image_tag }}
+
+      -
+        name: Setup Terraform executable cache
+        uses: actions/cache@v3.0.2
+        with:
+          path: ~/terraform/bin
+          key: ${{ runner.os }}-terraform-bin-${{ matrix.terraform_version }}
+
+      -
+        name: Download Terraform ${{ matrix.terraform_version }} CLI
+        id: terraform_cli
+        run: |
+          mkdir -p "$HOME/terraform/bin"
+          if [ ! -f "$HOME/terraform/bin/terraform" ]; then
+            wget -O '${{ runner.temp }}/terraform_${{ matrix.terraform_version }}_linux_amd64.zip' 'https://releases.hashicorp.com/terraform/${{ matrix.terraform_version }}/terraform_${{ matrix.terraform_version }}_linux_amd64.zip'
+            unzip '${{ runner.temp }}/terraform_${{ matrix.terraform_version }}_linux_amd64.zip' -d "$HOME/terraform/bin"
+          fi
+          chmod +x "$HOME/terraform/bin/terraform"
+          $HOME/terraform/bin/terraform version
+          echo "::set-output name=path::$HOME/terraform/bin/terraform"
+
+      -
+        name: Run acceptance tests
+        env:
+          TF_ACC: "1"
+          TF_LOG: "DEBUG"
+          TF_ACC_TERRAFORM_PATH: ${{ steps.terraform_cli.outputs.path }}
+          TF_ACC_PROVIDER_SYSTEM_TARGETS: ${{ matrix.target.name }}
+        run: |
+          go test -v ./internal/provider/
+
+      -
+        name: Logs of ${{ matrix.target.name }} container
+        if: ${{ always() && steps.start_os_container.outcome == 'success' }}
+        continue-on-error: true
+        run: >
+          docker logs '${{ steps.vars.outputs.os_container_name }}'
+
+      -
+        name: Stop ${{ matrix.target.name }} container
+        if: ${{ always() && steps.start_os_container.outcome == 'success' }}
+        continue-on-error: true
+        run: >
+          docker stop --time 30 '${{ steps.vars.outputs.os_container_name }}'
+
+  release:
+    name: Release
+    
+    # only on push events and if commit has version tag
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+
+    needs: acctest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v3.0.2
+
+      -
+        name: Unshallow
+        run: git fetch --prune --unshallow
+
+      -
+        name: Set up Go
+        uses: actions/setup-go@v3.0.0
+        with:
+          go-version: '1.18.5'
+
+      -
+        name: Import GPG private key
+        id: gpg_private_key
+        uses: crazy-max/ghaction-import-gpg@v4.4.0
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+      
+      -
+        name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v2.9.1
+        with:
+          version: latest
+          args: release --rm-dist
+        env:
+          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

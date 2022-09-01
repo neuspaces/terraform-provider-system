@@ -1,0 +1,57 @@
+name: build-fedora-test-container
+
+on:
+  push:
+    # Push events on main branch
+    branches:
+      - main
+    # Changes inside test/fedora
+    paths:
+      - '.github/workflows/build-fedora-test-container.yml'
+      - 'test/fedora/**'
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_REGISTRY: ghcr.io
+  # ghcr.io/neuspaces/terraform-provider-system/fedora-acctest
+  IMAGE_NAME: ghcr.io/${{ github.repository }}/fedora-acctest
+  IMAGE_BUILD_CONTEXT: ./test/fedora/docker
+
+jobs:
+  default:
+    name: Build/push image
+    if: github.repository == 'neuspaces/terraform-provider-system'
+
+    runs-on: ubuntu-22.04
+  
+    steps:
+      - 
+        name: Checkout sources
+        uses: actions/checkout@v3.0.2
+      
+      - 
+        name: Context variables
+        id: vars
+        run: |
+          echo "::set-output name=short_sha::${GITHUB_SHA:0:7}"
+
+      -
+        name: Login to GitHub Container Registry
+        uses: docker/login-action@v1.14.0
+        with:
+          registry: ${{ env.IMAGE_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - 
+        name: Build and push image
+        uses: docker/build-push-action@v2
+        with:
+          push: true
+          context: ${{ env.IMAGE_BUILD_CONTEXT }}
+          file: ${{ env.IMAGE_BUILD_CONTEXT }}/Dockerfile
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.short_sha }}

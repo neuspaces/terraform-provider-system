@@ -1,0 +1,10 @@
+#!/sbin/openrc-run
+
+name=$RC_SVCNAME
+description="On-the-fly configuration for OpenBSD Secure Shell server"
+command="/usr/local/sbin/sshd-config"
+pidfile=
+
+depend() {
+    before sshd
+}

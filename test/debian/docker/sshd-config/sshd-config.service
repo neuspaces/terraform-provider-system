@@ -1,0 +1,13 @@
+[Unit]
+Description=Configure OpenBSD Secure Shell server
+Before=sshd.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/sshd-config
+StandardOutput=journal+console
+PassEnvironment=SSH_USERS SSH_ENABLE_PASSWORD_AUTH SSH_ENABLE_ROOT_PASSWORD_AUTH SFTP_CHROOT TCP_FORWARDING GATEWAY_PORTS DISABLE_SFTP SFTP_MODE RSYNC_MODE
+
+[Install]
+WantedBy=multi-user.target

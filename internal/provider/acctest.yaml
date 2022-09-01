@@ -1,0 +1,158 @@
+targets:
+  alpine:
+    os:
+      id: alpine
+      name: Alpine Linux v3.15
+      vendor: alpine
+      version: 3.15.4
+      release:
+
+    configs:
+      base: &alpine-base
+        ssh:
+          host: 127.0.0.1
+          port: 10022
+          # /test/alpine/hostkeys/ssh_host_ed25519_key.pub
+          # host_key: |
+          #   ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILgld+TRZ9eEKEY+YP1q4ZstYfFbNzA8vOUhbJDzmeXA
+          # /test/alpine/hostkeys/ssh_host_ecdsa_key.pub
+          host_key: |
+            ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBJ/TQy5Qwv1CH56L6JdJIOWn6+xwjWjVK5LcSCMHXq9iVqOR0akAtPgq8qlcL5ehBtyNIVeAvaTkhAioVB8eao0=
+      auth-password: &alpine-auth-password
+        <<: *alpine-base
+        ssh:
+          user: root
+          password: root!
+      auth-private-key: &alpine-auth-private-key
+        <<: *alpine-base
+        ssh:
+          user: root
+          # /test/alpine/root-ed25519
+          private_key: |
+            -----BEGIN OPENSSH PRIVATE KEY-----
+            b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+            QyNTUxOQAAACCtC9c+DiIOB9ClqiFTOKZr3EtJ4E3xvG9+6909pZzZkgAAAJBUPPtsVDz7
+            bAAAAAtzc2gtZWQyNTUxOQAAACCtC9c+DiIOB9ClqiFTOKZr3EtJ4E3xvG9+6909pZzZkg
+            AAAECx5bQevSbAYeGhScFaEg6WlvB/myJt3LNHs3+Q7gocYK0L1z4OIg4H0KWqIVM4pmvc
+            S0ngTfG8b37r3T2lnNmSAAAADHJvb3QtZWQyNTUxOQE=
+            -----END OPENSSH PRIVATE KEY-----
+          # /test/alpine/root-ed25519.pub
+          public_key: |
+            ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK0L1z4OIg4H0KWqIVM4pmvcS0ngTfG8b37r3T2lnNmS root-ed25519
+      auth-unprivileged:
+        <<: *alpine-base
+        ssh:
+          user: someone
+          password: someone!
+      auth-privileged:
+        <<: *alpine-base
+        ssh:
+          user: someadmin
+          password: someadmin!
+#      default: *alpine-auth-private-key
+      default: *alpine-auth-password
+
+  debian:
+    os:
+      id: debian
+      name: Debian GNU/Linux 11 (bullseye)
+      vendor: debian
+      version: 11
+      release: 11.2
+
+    configs:
+      base: &debian-base
+        ssh:
+          host: 127.0.0.1
+          port: 11022
+          # /test/debian/hostkeys/ssh_host_ed25519_key.pub
+          # host_key: |
+          #   ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOih9doaohsKIcMCAstAX7olKWnkVGChd0gKmWPDNm2y
+          # /test/debian/hostkeys/ssh_host_ecdsa_key.pub
+          host_key: |
+            ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBNGX3Wz4Zvtaijuemznt7oqUrdx+RqskFoHvKgKWV2pfJ7C/nj6xMygqorpv+5QgagcUTRQcgveqbnMmlf95K3s=
+      auth-password: &debian-auth-password
+        <<: *debian-base
+        ssh:
+          user: root
+          password: root!
+      auth-private-key: &debian-auth-private-key
+        <<: *debian-base
+        ssh:
+          user: root
+          # /test/debian/root-ed25519
+          private_key: |
+            -----BEGIN OPENSSH PRIVATE KEY-----
+            b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+            QyNTUxOQAAACCC77v3VOoEJTARcy6L0ACNaJN+XEZpl+r4A0iS9XJnGQAAAJAEZJBxBGSQ
+            cQAAAAtzc2gtZWQyNTUxOQAAACCC77v3VOoEJTARcy6L0ACNaJN+XEZpl+r4A0iS9XJnGQ
+            AAAECq+KFJo4NJlCXHctO9H5X/5V5AzqbZCS+k0SQSKfk2boLvu/dU6gQlMBFzLovQAI1o
+            k35cRmmX6vgDSJL1cmcZAAAADHJvb3QtZWQyNTUxOQE=
+            -----END OPENSSH PRIVATE KEY-----
+          # /test/debian/root-ed25519.pub
+          public_key: |
+            ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIILvu/dU6gQlMBFzLovQAI1ok35cRmmX6vgDSJL1cmcZ root-ed25519
+      auth-unprivileged:
+        <<: *debian-base
+        ssh:
+          user: someone
+          password: someone!
+      auth-privileged:
+        <<: *debian-base
+        ssh:
+          user: someadmin
+          password: someadmin!
+#      default: *debian-auth-private-key
+      default: *debian-auth-password
+  
+  fedora:
+    os:
+      id: fedora
+      name: Fedora Linux 35 (Container Image)
+      vendor: fedora
+      version: 35
+      # release: 
+
+    configs:
+      base: &fedora-base
+        ssh:
+          host: 127.0.0.1
+          port: 12022
+          # /test/fedora/hostkeys/ssh_host_ed25519_key.pub
+          # host_key: |
+          #   ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMTjn49gNtp42Jyhe+pU60i+4SQvBDD7+1tUWBOxzjFc
+          # /test/fedora/hostkeys/ssh_host_ecdsa_key.pub
+          host_key: |
+            ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBOrNkQ+R0cAJYXSeUmJVm+nMGv71VAaylQjjDIECJCFK2afqgCsrvRALvaJHfrMUl5b62sO5hLHm80RGLJEC8t0=
+      auth-password: &fedora-auth-password
+        <<: *fedora-base
+        ssh:
+          user: root
+          password: root!
+      auth-private-key: &fedora-auth-private-key
+        <<: *fedora-base
+        ssh:
+          user: root
+          # /test/fedora/root-ed25519
+          private_key: |
+            -----BEGIN OPENSSH PRIVATE KEY-----
+            b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+            QyNTUxOQAAACAteL+jMXsPoxz+2r0MksCiSwHwFQmiVyHIikUfAo3d3wAAAJDtGMaK7RjG
+            igAAAAtzc2gtZWQyNTUxOQAAACAteL+jMXsPoxz+2r0MksCiSwHwFQmiVyHIikUfAo3d3w
+            AAAECsZ5Thofrbni1zcQAI2sg1oXpP2/JF810NEM0duep/Fy14v6Mxew+jHP7avQySwKJL
+            AfAVCaJXIciKRR8Cjd3fAAAADHJvb3QtZWQyNTUxOQE=
+            -----END OPENSSH PRIVATE KEY-----
+          public_key: |
+            ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC14v6Mxew+jHP7avQySwKJLAfAVCaJXIciKRR8Cjd3f root-ed25519
+      auth-unprivileged:
+        <<: *fedora-base
+        ssh:
+          user: someone
+          password: someone!
+      auth-privileged:
+        <<: *fedora-base
+        ssh:
+          user: someadmin
+          password: someadmin!
+#      default: *fedora-auth-private-key
+      default: *fedora-auth-password

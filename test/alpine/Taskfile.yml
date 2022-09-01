@@ -1,0 +1,121 @@
+version: "3"
+
+vars:
+  PROJECT_PATH:
+    sh: 'pwd; # alpine'
+
+  OS_NAME: alpine
+
+  CONTAINER_NAME: terraform-provider-system-{{.OS_NAME}}
+
+  HOST_SSH_PORT: 10022
+
+  IMAGE_NAME: terraform-provider-system-{{.OS_NAME}}
+  IMAGE_TAG: latest
+
+tasks:
+  build-image:
+    desc: Build the container image
+    cmds:
+      - >
+        docker build
+        -f ./docker/Dockerfile
+        -t {{.IMAGE_NAME}}:{{.IMAGE_TAG}}
+        ./docker
+    sources:
+      - './docker/**/*'
+  
+  start-container:
+    desc: Start the container
+    cmds:
+      - chmod 600 ./root-rsa.pub ./root-ed25519.pub
+      - >
+        docker run
+        --detach
+        --rm
+        --tmpfs /tmp
+        --tmpfs /run
+        -v /sys/fs/cgroup:/sys/fs/cgroup:ro
+        --name {{.CONTAINER_NAME}}
+        --env 'SSH_ENABLE_ROOT_PASSWORD_AUTH=true'
+        --env 'SSH_ENABLE_PASSWORD_AUTH=true'
+        --env 'TCP_FORWARDING=true'
+        --publish {{.HOST_SSH_PORT}}:22
+        --mount type=bind,source={{.PROJECT_PATH}}/root-ed25519.pub,target=/etc/authorized_keys/root,readonly
+        --mount type=bind,source={{.PROJECT_PATH}}/hostkeys,target=/etc/ssh/keys,readonly
+        {{.IMAGE_NAME}}:{{.IMAGE_TAG}}
+
+  show-container-logs:
+    desc: Show the container logs
+    cmds:
+      - docker logs --follow {{.CONTAINER_NAME}}
+  
+  stop-container:
+    desc: Stop the container
+    cmds:
+      - docker stop {{.CONTAINER_NAME}}
+    status:
+      - '! docker container inspect {{.CONTAINER_NAME}}'
+  
+  restart-container:
+    desc: Restart the container
+    cmds:
+      - task: stop-container
+      - task: start-container
+  
+  build-restart-container:
+    desc: Builds the container image and restarts the container
+    cmds:
+      - task: stop-container
+      - task: build-image
+      - task: start-container
+
+  connect-ssh:
+    desc: Start ssh session to the ssh container
+    cmds:
+      - ssh -i ./root-ed25519 -o 'StrictHostKeyChecking=no' -o 'UserKnownHostsFile=/dev/null' -p {{.HOST_SSH_PORT}} 'root@127.0.0.1'
+
+  generate-root-key-rsa:
+    desc: Generate RSA key pair for ssh authentication
+    cmds:
+      - ssh-keygen -q -t rsa -b 4096 -N '' -f ./root-rsa -C 'root-rsa'
+      - chmod 600 ./root-rsa ./root-rsa.pub
+    status:
+      - test -f ./root-rsa
+      - test -f ./root-rsa.pub
+
+  generate-root-key-ed25519:
+    desc: Generate Ed25519 key pair for ssh authentication
+    cmds:
+      - ssh-keygen -q -t ed25519 -N '' -f ./root-ed25519 -C 'root-ed25519'
+      - chmod 600 ./root-ed25519 ./root-ed25519.pub
+    status:
+      - test -f ./root-ed25519
+      - test -f ./root-ed25519.pub
+
+  generate-host-keys:
+    desc: Generate host keys
+    cmds:
+      - mkdir -p ./hostkeys
+      # Start container and mount hostkeys folder as writable
+      - >
+        docker run
+        --rm
+        --detach
+        --name {{.CONTAINER_NAME}}-gen-hostkeys
+        --mount type=bind,source={{.PROJECT_PATH}}/hostkeys,target=/etc/ssh/keys
+        {{.IMAGE_NAME}}:{{.IMAGE_TAG}}
+      # Short delay
+      - sleep 5
+      # Send SIGTERM to container
+      - docker stop --time 15 {{.CONTAINER_NAME}}-gen-hostkeys
+    status:
+      - test -d ./hostkeys
+      - test -f ./hostkeys/ssh_host_dsa_key
+      - test -f ./hostkeys/ssh_host_dsa_key.pub
+      - test -f ./hostkeys/ssh_host_ecdsa_key
+      - test -f ./hostkeys/ssh_host_ecdsa_key.pub
+      - test -f ./hostkeys/ssh_host_ed25519_key
+      - test -f ./hostkeys/ssh_host_ed25519_key.pub
+      - test -f ./hostkeys/ssh_host_rsa_key
+      - test -f ./hostkeys/ssh_host_rsa_key.pub

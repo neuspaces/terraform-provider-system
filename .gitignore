@@ -1,0 +1,13 @@
+/.bin
+/.idea
+/.run
+/.vscode
+/*.code-workspace
+
+.task
+
+.terraform
+*.tfstate
+*.tfstate.*.backup
+*.tfstate.backup
+*_override.tf

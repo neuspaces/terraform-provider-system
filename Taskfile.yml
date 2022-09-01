@@ -1,0 +1,107 @@
+version: "3"
+
+vars:
+  TF_PROVIDER_NAME: system
+
+  ACCTEST_TF_CLI_VERSION: 1.2.8
+
+  BIN_PATH: ./.bin
+
+includes:
+  local:
+    taskfile: ./Taskfile.local.yml
+    optional: true
+
+  test-alpine:
+    taskfile: ./test/alpine/Taskfile.yml
+    dir: ./test/alpine
+  test-debian:
+    taskfile: ./test/debian/Taskfile.yml
+    dir: ./test/debian
+  test-fedora:
+    taskfile: ./test/fedora/Taskfile.yml
+    dir: ./test/fedora
+
+tasks:
+  fmt:
+    deps:
+      - go-fmt
+
+  go-fmt:
+    # https://golang.org/cmd/gofmt/
+    desc: Format Go source code
+    cmds:
+      - gofmt -w .
+
+  go-fmt-check:
+    desc: Checks if Go source code is formatted
+    cmds:
+      - 'gofmtout=$(gofmt -l .); [ -z "${gofmtout}" ] || { echo "detected malformatted go files" >&2; echo $gofmtout; exit 1; }'
+
+  go-doc:
+    desc: Run documentation server for Go programs
+    cmds:
+      - echo "Open documentation at http://127.0.0.1:10080/pkg/github.com/neuspaces/terraform-provider-system"
+      - godoc -http "127.0.0.1:10080" -index -goroot .
+
+  tf-fmt:
+    desc: Format Terraform code
+    cmds:
+      - terraform fmt -recursive examples/
+
+  tf-provider-lint:
+    desc: Lint of Terraform provider implementation
+    cmds:
+      - go run github.com/bflad/tfproviderlint/cmd/tfproviderlint -R001=false ./...
+  
+  tf-cli-fetch:
+    desc: Download Terraform CLI executable used by acceptance tests
+    cmds:
+      - mkdir -p {{.BIN_PATH}}/terraform-{{.ACCTEST_TF_CLI_VERSION}}
+      - curl -s -L 'https://releases.hashicorp.com/terraform/{{.ACCTEST_TF_CLI_VERSION}}/terraform_{{.ACCTEST_TF_CLI_VERSION}}_{{OS}}_{{ARCH}}.zip' | funzip > '{{.BIN_PATH}}/terraform-{{.ACCTEST_TF_CLI_VERSION}}/terraform'
+      - chmod 755 '{{.BIN_PATH}}/terraform-{{.ACCTEST_TF_CLI_VERSION}}/terraform'
+    status:
+      - test -f '{{.BIN_PATH}}/terraform-{{.ACCTEST_TF_CLI_VERSION}}/terraform'
+
+  tf-cli-link:
+    desc: Enable the version of the Terraform CLI executable
+    deps:
+      - tf-cli-fetch
+    cmds:
+      - ln -sf 'terraform-{{.ACCTEST_TF_CLI_VERSION}}/terraform' '{{.BIN_PATH}}/terraform'
+    status:
+      - test "terraform-{{.ACCTEST_TF_CLI_VERSION}}/terraform" = "$(readlink {{.BIN_PATH}}/terraform)"
+
+  build:
+    desc: Build provider executable
+    env:
+      CGO_ENABLED: 0
+    cmds:
+      - mkdir -p {{.BIN_PATH}}
+      - go build -o {{.BIN_PATH}}/terraform-provider-{{.TF_PROVIDER_NAME}} .
+    sources:
+      - "**/*.go"
+    generates:
+      - '{{.BIN_PATH}}/terraform-provider-{{.TF_PROVIDER_NAME}}'
+
+  testacc:
+    desc: Run provider acceptance tests
+    env:
+      TF_ACC: true
+    cmds:
+      - go test -run '^TestAcc' github.com/neuspaces/terraform-provider-system/internal/provider
+
+  test:
+    desc: Run provider unit tests
+    cmds:
+      - go test -v ./...
+
+  docs-validate:
+    desc: Validate provider documentation using tfplugindocs
+    cmds:
+      - go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs validate
+
+  docs-generate:
+    desc: Generate provider documentation using tfplugindocs
+    cmds:
+      - go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs generate
