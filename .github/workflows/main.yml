@@ -54,7 +54,7 @@ jobs:
         uses: actions/cache@v3.0.2
         with:
           path: ~/terraform/bin
-          key: ${{ runner.os }}-terraform-bin-${{ matrix.terraform_version }}
+          key: ${{ runner.os }}-terraform-bin-1.2.8
 
       -
         name: Download Terraform CLI
@@ -62,8 +62,8 @@ jobs:
         run: |
           mkdir -p "$HOME/terraform/bin"
           if [ ! -f "$HOME/terraform/bin/terraform" ]; then
-            wget -O '${{ runner.temp }}/terraform_${{ matrix.terraform_version }}_linux_amd64.zip' 'https://releases.hashicorp.com/terraform/${{ matrix.terraform_version }}/terraform_${{ matrix.terraform_version }}_linux_amd64.zip'
-            unzip '${{ runner.temp }}/terraform_${{ matrix.terraform_version }}_linux_amd64.zip' -d "$HOME/terraform/bin"
+            wget -O '${{ runner.temp }}/terraform_1.2.8_linux_amd64.zip' 'https://releases.hashicorp.com/terraform/1.2.8/terraform_1.2.8_linux_amd64.zip'
+            unzip '${{ runner.temp }}/terraform_1.2.8_linux_amd64.zip' -d "$HOME/terraform/bin"
           fi
           chmod +x "$HOME/terraform/bin/terraform"
           $HOME/terraform/bin/terraform version
@@ -259,7 +259,7 @@ jobs:
 
       -
         name: Import GPG private key
-        id: gpg_private_key
+        id: import_gpg_private_key
         uses: crazy-max/ghaction-import-gpg@v4.4.0
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -272,5 +272,5 @@ jobs:
           version: latest
           args: release --rm-dist
         env:
-          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+          GPG_FINGERPRINT: ${{ steps.import_gpg_private_key.outputs.fingerprint }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
