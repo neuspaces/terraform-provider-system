@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     system = {
-      source = "registry.terraform.io/neuspaces/system"
+      source = "neuspaces/system"
     }
   }
 }
@@ -76,6 +76,11 @@ server {
 }
 EOT
   )
+
+  depends_on = [
+    # Directory `/etc/nginx/sites-available` exists after package `nginx` is installed
+    system_packages_apt.packages,
+  ]
 }
 
 # Enable virtual host configuration
@@ -93,7 +98,15 @@ resource "system_service_systemd" "nginx" {
   enabled = true
   status  = "started"
 
+  reload_on = [
+    # changes to the virtual host configuration
+    system_file.virtual_host.md5sum,
+  ]
+
   depends_on = [
+    # Package must be installed
     system_packages_apt.packages,
+    # Virtual host is configured
+    system_file.virtual_host,
   ]
 }
