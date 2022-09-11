@@ -54,23 +54,23 @@ resource "system_service_systemd" "nginx" {
 
 The SSH connection to the remote system can be established
 
-- [directly](./ssh-connect#direct-connection), or
-- [indirectly via a bastion host](./ssh-connect#proxy-bastion-host-connection)
+- [directly](./guides/ssh-connect#direct-connection), or
+- [indirectly via a bastion host](./guides/ssh-connect#proxy-bastion-host-connection)
 
-Refer to the page on [SSH connection](./ssh-connect) for details and configuration examples.
+Refer to the page on [SSH connection](./guides/ssh-connect) for details and configuration examples.
 
 ## SSH authentication
 
 The provider supports the following SSH authentication methods.
 
-- [password](./ssh-auth#password)
-- [private key](./ssh-auth#private-key)
-- [ssh agent](./ssh-auth#agent)
+- [password](./guides/ssh-auth#password)
+- [private key](./guides/ssh-auth#private-key)
+- [ssh agent](./guides/ssh-auth#agent)
 - user certificate
 
 The provider supports privilege escalation on the remote system via sudo.
 
-Refer to the page on [SSH authentication](./ssh-auth) for details and configuration examples.
+Refer to the page on [SSH authentication](./guides/ssh-auth) for details and configuration examples.
 
 ## SSH provisioner like configuration
 
@@ -78,7 +78,7 @@ Refer to the page on [SSH authentication](./ssh-auth) for details and configurat
 
 You may reuse your existing [Terraform SSH provisioner configuration](https://www.terraform.io/language/resources/provisioners/connection) to configure the connection to the remote system.
 
-The [connection block of the Terraform SSH provisioner](https://www.terraform.io/language/resources/provisioners/connection#connection-block) is mostly compatible to the [`connection` block](..#nestedblock--connection) of the provider.
+The [connection block of the Terraform SSH provisioner](https://www.terraform.io/language/resources/provisioners/connection#connection-block) is mostly compatible to the [`connection` block](#nestedblock--connection) of the provider.
 
 ```terraform
 provider "system" {
