@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     system = {
-      source = "registry.terraform.io/neuspaces/system"
+      source = "neuspaces/system"
     }
   }
 }
@@ -76,6 +76,11 @@ server {
 }
 EOT
   )
+
+  depends_on = [
+    # Directory `/etc/nginx/http.d` exists after package `nginx` is installed
+    system_packages_apk.packages,
+  ]
 }
 
 # Enable and start nginx service
@@ -86,7 +91,15 @@ resource "system_service_openrc" "nginx" {
   enabled = true
   status  = "started"
 
+  reload_on = [
+    # changes to the virtual host configuration
+    system_file.virtual_host.md5sum,
+  ]
+
   depends_on = [
+    # Package is installed
     system_packages_apk.packages,
+    # Virtual host is configured
+    system_file.virtual_host,
   ]
 }
