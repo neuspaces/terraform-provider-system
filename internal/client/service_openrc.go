@@ -1,8 +1,10 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"github.com/joho/godotenv"
 	"github.com/neuspaces/terraform-provider-system/internal/client/openrc"
 	"github.com/neuspaces/terraform-provider-system/internal/extlib/to"
 	"github.com/neuspaces/terraform-provider-system/internal/system"
@@ -107,6 +109,12 @@ func (c *openrcServiceClient) Apply(ctx context.Context, s Service, opts ...Serv
 	// Commands
 	var applyCmds []string
 
+	// Options
+	o := &ServiceApplyOptions{}
+	for _, opt := range opts {
+		opt(o)
+	}
+
 	// Activation: Enable/disable in runlevel
 	if s.Enabled != nil {
 		if *s.Enabled {
@@ -120,21 +128,24 @@ func (c *openrcServiceClient) Apply(ctx context.Context, s Service, opts ...Serv
 
 	// Status: Start/stop
 	if s.Status != nil {
-		var rcServiceAction string
-		var rcServiceStatusCode int
+		if *s.Status == ServiceStatusStarted {
+			// Command starts the service
+			// `rc-service -q -C $service start` is idempotent
+			applyCmds = append(applyCmds, fmt.Sprintf(`{ rc-service -q -C '%[1]s' start; echo "rcservice_start_rc=$?"; };`, s.Name))
 
-		switch *s.Status {
-		case ServiceStatusStarted:
-			rcServiceAction = "start"
-			rcServiceStatusCode = 0
-		case ServiceStatusStopped:
-			rcServiceAction = "stop"
-			rcServiceStatusCode = 3
-		}
-
-		if rcServiceAction != "" {
-			// Command determines the current service status and applies start/stop action if the service is not in the expected status
-			applyCmds = append(applyCmds, fmt.Sprintf(` { rc-service -q -C '%[1]s' status; status_rc=$?; [ $status_rc -eq %[2]d ] || rc-service -q '%[1]s' %[3]s || return 1; };`, s.Name, rcServiceStatusCode, rcServiceAction))
+			if o.restart {
+				// Restart service
+				// `rc-service -q -C $service restart`
+				applyCmds = append(applyCmds, fmt.Sprintf(` { rc-service -q -C '%[1]s' restart; echo "rcservice_restart_rc=$?"; };`, s.Name))
+			} else if o.reload {
+				// Reload service
+				// `rc-service -q -C $service reload`
+				applyCmds = append(applyCmds, fmt.Sprintf(` { rc-service -q -C '%[1]s' reload; echo "rcservice_reload_rc=$?"; };`, s.Name))
+			}
+		} else if *s.Status == ServiceStatusStopped {
+			// Command stops the service unit
+			// `rc-service -q -C $service stop` is idempotent
+			applyCmds = append(applyCmds, fmt.Sprintf(`{ rc-service -q -C '%[1]s' stop; echo "rcservice_stop_rc=$?"; };`, s.Name))
 		}
 	}
 
@@ -158,6 +169,28 @@ func (c *openrcServiceClient) Apply(ctx context.Context, s Service, opts ...Serv
 
 	if res.ExitCode != 0 {
 		return ErrServiceUnexpected
+	}
+
+	// Parse output properties
+	stdoutProps, err := godotenv.Parse(bytes.NewReader(res.Stdout))
+	if err != nil {
+		return ErrServiceUnexpected.Raise(err)
+	}
+
+	if rc, ok := stdoutProps["rcservice_start_rc"]; ok && rc != "0" {
+		return ErrServiceOperation.Raise(fmt.Errorf("rc-service -q -C '%[1]s' start' returned unexpected exit code %[2]s", s.Name, rc))
+	}
+
+	if rc, ok := stdoutProps["rcservice_stop_rc"]; ok && rc != "0" {
+		return ErrServiceOperation.Raise(fmt.Errorf("rc-service -q -C '%[1]s' stop' returned unexpected exit code %[2]s", s.Name, rc))
+	}
+
+	if rc, ok := stdoutProps["rcservice_restart_rc"]; ok && rc != "0" {
+		return ErrServiceOperation.Raise(fmt.Errorf("rc-service -q -C '%[1]s' restart' returned unexpected exit code %[2]s", s.Name, rc))
+	}
+
+	if rc, ok := stdoutProps["rcservice_reload_rc"]; ok && rc != "0" {
+		return ErrServiceOperation.Raise(fmt.Errorf("rc-service -q -C '%[1]s' reload' returned unexpected exit code %[2]s", s.Name, rc))
 	}
 
 	return nil

@@ -94,15 +94,21 @@ func (c *systemdServiceClient) Apply(ctx context.Context, s Service, opts ...Ser
 	// Commands
 	var applyCmds []string
 
+	// Options
+	o := &ServiceApplyOptions{}
+	for _, opt := range opts {
+		opt(o)
+	}
+
 	// Activation: Enable/disable
 	if s.Enabled != nil {
 		if *s.Enabled {
 			// Command enables the service unit in all targets which are references in the [Install] section
-			// `systemctl enable [unit]` is idempotent
+			// `systemctl enable $unit` is idempotent
 			applyCmds = append(applyCmds, fmt.Sprintf(`{ systemctl enable '%[1]s.service' --quiet; echo "systemctl_enable_rc=$?"; };`, s.Name))
 		} else {
 			// Command disables the service unit
-			// `systemctl disable [unit]` is idempotent
+			// `systemctl disable $unit` is idempotent
 			applyCmds = append(applyCmds, fmt.Sprintf(`{ systemctl disable '%[1]s.service' --quiet; echo "systemctl_disable_rc=$?"; };`, s.Name))
 		}
 	}
@@ -111,11 +117,21 @@ func (c *systemdServiceClient) Apply(ctx context.Context, s Service, opts ...Ser
 	if s.Status != nil {
 		if *s.Status == ServiceStatusStarted {
 			// Command starts the service unit
-			// `systemctl start [unit]` is idempotent
+			// `systemctl start $unit` is idempotent
 			applyCmds = append(applyCmds, fmt.Sprintf(`{ systemctl start '%[1]s.service' --quiet; echo "systemctl_start_rc=$?"; };`, s.Name))
+
+			if o.restart {
+				// Restart service
+				// `systemctl restart $unit`
+				applyCmds = append(applyCmds, fmt.Sprintf(`{ systemctl restart '%[1]s.service' --quiet; echo "systemctl_restart_rc=$?"; };`, s.Name))
+			} else if o.reload {
+				// Reload service
+				// `systemctl reload $unit`
+				applyCmds = append(applyCmds, fmt.Sprintf(`{ systemctl reload '%[1]s.service' --quiet; echo "systemctl_reload_rc=$?"; };`, s.Name))
+			}
 		} else if *s.Status == ServiceStatusStopped {
 			// Command stops the service unit
-			// `systemctl stop [unit]` is idempotent
+			// `systemctl stop $unit` is idempotent
 			applyCmds = append(applyCmds, fmt.Sprintf(`{ systemctl stop '%[1]s.service' --quiet; echo "systemctl_stop_rc=$?"; };`, s.Name))
 		}
 	}
@@ -159,6 +175,14 @@ func (c *systemdServiceClient) Apply(ctx context.Context, s Service, opts ...Ser
 				return ErrServiceOperation.Raise(fmt.Errorf("systemctl stop '%[1]s.service' returned unexpected exit code %[2]s", s.Name, rc))
 			}
 		}
+	}
+
+	if rc, ok := stdoutProps["systemctl_restart_rc"]; ok && rc != "0" {
+		return ErrServiceOperation.Raise(fmt.Errorf("systemctl restart '%[1]s.service' returned unexpected exit code %[2]s", s.Name, rc))
+	}
+
+	if rc, ok := stdoutProps["systemctl_reload_rc"]; ok && rc != "0" {
+		return ErrServiceOperation.Raise(fmt.Errorf("systemctl reload '%[1]s.service' returned unexpected exit code %[2]s", s.Name, rc))
 	}
 
 	return nil

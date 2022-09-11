@@ -117,8 +117,8 @@ func resourceServiceSystemdGetResourceData(d *schema.ResourceData) (*client.Serv
 		Name: d.Get(resourceServiceSystemdAttrName).(string),
 	}
 
-	if d.HasChange(resourceServiceSystemdAttrStatus) {
-		r.Status = client.ServiceStatusPtr(resourceServiceSystemdStatusToClientStatus(d.Get(resourceServiceSystemdAttrStatus).(string)))
+	if val, ok := d.GetOk(resourceServiceSystemdAttrStatus); ok {
+		r.Status = client.ServiceStatusPtr(resourceServiceSystemdStatusToClientStatus(val.(string)))
 	}
 
 	// Use deprecated GetOkExists instead of HasChange because HasChange does not support optional bool attributes
@@ -180,7 +180,20 @@ func resourceServiceSystemdCreate(ctx context.Context, d *schema.ResourceData, m
 		return newDetailedDiagnostic(diag.Error, "unexpected status property", "status property could not be determined during create", nil)
 	}
 
-	err = c.Apply(ctx, *r)
+	// Apply options
+	var applyOpts []client.ServiceApplyOption
+
+	// Handle reload trigger
+	if d.HasChange(resourceServiceSystemdAttrReloadOn) {
+		applyOpts = append(applyOpts, client.ServiceReload())
+	}
+
+	// Handle restart trigger
+	if d.HasChange(resourceServiceSystemdAttrRestartOn) {
+		applyOpts = append(applyOpts, client.ServiceRestart())
+	}
+
+	err = c.Apply(ctx, *r, applyOpts...)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -245,12 +258,12 @@ func resourceServiceSystemdUpdate(ctx context.Context, d *schema.ResourceData, m
 
 	// Handle reload trigger
 	if d.HasChange(resourceServiceSystemdAttrReloadOn) {
-		applyOpts = append(applyOpts, client.ServiceReloaded())
+		applyOpts = append(applyOpts, client.ServiceReload())
 	}
 
 	// Handle restart trigger
 	if d.HasChange(resourceServiceSystemdAttrRestartOn) {
-		applyOpts = append(applyOpts, client.ServiceRestarted())
+		applyOpts = append(applyOpts, client.ServiceRestart())
 	}
 
 	err := c.Apply(ctx, *r, applyOpts...)

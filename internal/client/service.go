@@ -46,23 +46,23 @@ type ServiceGetArgs struct {
 }
 
 type ServiceApplyOptions struct {
-	restarted bool
-	reloaded  bool
+	restart bool
+	reload  bool
 }
 
 type ServiceApplyOption func(*ServiceApplyOptions)
 
-// ServiceRestarted is an option for Apply to ensure a service is restarted
-func ServiceRestarted() ServiceApplyOption {
+// ServiceRestart is an option for Apply to ensure a service is restarted
+func ServiceRestart() ServiceApplyOption {
 	return func(o *ServiceApplyOptions) {
-		o.restarted = true
+		o.restart = true
 	}
 }
 
-// ServiceReloaded is an option for Apply to ensure a service is reloaded
-func ServiceReloaded() ServiceApplyOption {
+// ServiceReload is an option for Apply to ensure a service is reloaded
+func ServiceReload() ServiceApplyOption {
 	return func(o *ServiceApplyOptions) {
-		o.reloaded = true
+		o.reload = true
 	}
 }
 

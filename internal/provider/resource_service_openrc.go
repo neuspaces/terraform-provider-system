@@ -115,13 +115,13 @@ func resourceServiceOpenrcGetResourceData(d *schema.ResourceData) (*client.Servi
 		Runlevel: d.Get(resourceServiceOpenrcAttrRunlevel).(string),
 	}
 
-	if d.HasChange(resourceServiceOpenrcAttrStatus) {
-		r.Status = client.ServiceStatusPtr(resourceServiceOpenRcStatusToClientStatus(d.Get(resourceServiceOpenrcAttrStatus).(string)))
+	if val, ok := d.GetOk(resourceServiceOpenrcAttrStatus); ok {
+		r.Status = client.ServiceStatusPtr(resourceServiceOpenRcStatusToClientStatus(val.(string)))
 	}
 
 	// Use deprecated GetOkExists instead of HasChange because HasChange does not support optional bool attributes
 	// https://github.com/hashicorp/terraform-plugin-sdk/issues/817
-	if val, exists := d.GetOkExists(resourceServiceOpenrcAttrEnabled); exists {
+	if val, ok := d.GetOkExists(resourceServiceOpenrcAttrEnabled); ok {
 		r.Enabled = to.BoolPtr(val.(bool))
 	}
 
@@ -180,7 +180,20 @@ func resourceServiceOpenrcCreate(ctx context.Context, d *schema.ResourceData, me
 		return newDetailedDiagnostic(diag.Error, "unexpected status property", "status property could not be determined during create", nil)
 	}
 
-	err = c.Apply(ctx, *r)
+	// Apply options
+	var applyOpts []client.ServiceApplyOption
+
+	// Handle reload trigger
+	if d.HasChange(resourceServiceOpenrcAttrReloadOn) {
+		applyOpts = append(applyOpts, client.ServiceReload())
+	}
+
+	// Handle restart trigger
+	if d.HasChange(resourceServiceOpenrcAttrRestartOn) {
+		applyOpts = append(applyOpts, client.ServiceRestart())
+	}
+
+	err = c.Apply(ctx, *r, applyOpts...)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -242,10 +255,17 @@ func resourceServiceOpenrcUpdate(ctx context.Context, d *schema.ResourceData, me
 
 	// Update of `runlevel` is handled by ForceNew
 
-	// Handle restart trigger
+	// Apply options
 	var applyOpts []client.ServiceApplyOption
+
+	// Handle reload trigger
+	if d.HasChange(resourceServiceOpenrcAttrReloadOn) {
+		applyOpts = append(applyOpts, client.ServiceReload())
+	}
+
+	// Handle restart trigger
 	if d.HasChange(resourceServiceOpenrcAttrRestartOn) {
-		applyOpts = append(applyOpts, client.ServiceRestarted())
+		applyOpts = append(applyOpts, client.ServiceRestart())
 	}
 
 	err := c.Apply(ctx, *r, applyOpts...)
