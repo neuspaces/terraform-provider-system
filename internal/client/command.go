@@ -161,7 +161,9 @@ func ExecuteCommandWithOptions(ctx context.Context, s system.System, c Command, 
 	tflog.Debug(ctx, "command executed", map[string]interface{}{
 		"cmd":        cmdString,
 		"exitcode":   commandResult.ExitCode,
+		"stdout":     string(truncateBytes(commandResult.Stdout, 4096)),
 		"stdout_len": len(commandResult.Stdout),
+		"stderr":     string(truncateBytes(commandResult.Stderr, 4096)),
 		"stderr_len": len(commandResult.Stderr),
 	})
 
