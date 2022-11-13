@@ -31,7 +31,7 @@ func dataFile() *schema.Resource {
 				Computed:    true,
 			},
 			resourceFileAttrPath: {
-				Description: "Path to the file. Must be an absolute path.",
+				Description: "Absolute path to the file.",
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
