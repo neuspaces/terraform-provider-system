@@ -31,11 +31,10 @@ func dataFile() *schema.Resource {
 				Computed:    true,
 			},
 			resourceFileAttrPath: {
-				Description:      "Path to the file. Must be an absolute path.",
-				Type:             schema.TypeString,
-				Required:         true,
-				ForceNew:         true,
-				ValidateDiagFunc: validate.AbsolutePath(),
+				Description: "Path to the file. Must be an absolute path.",
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
 			},
 			resourceFileAttrMode: {
 				Description:      "Permissions of the file in octal format like `755`. Defaults to the umask of the system.",
