@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestAccFile_read_content(t *testing.T) {
+func TestAccDataFile_read_content(t *testing.T) {
 	testConfig := newTestFileConfig()
 
 	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
