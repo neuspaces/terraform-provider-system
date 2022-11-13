@@ -63,16 +63,10 @@ func dataFile() *schema.Resource {
 				Computed:    true,
 			},
 			resourceFileAttrContent: {
-				Description: fmt.Sprintf("Content of the file. Only recommended for small text-based payloads such as configuration files etc. In a terraform plan,  The content will be stored in plain-text in the terraform state. Mutually exclusive with attributes `%[2]s` and `%[3]s`.", resourceFileAttrContent, resourceFileAttrContentSensitive, resourceFileAttrSource),
+				Description: fmt.Sprintf("Content of the file. Do not use for sensitive content! Only recommended for small text-based payloads such as configuration files etc. In a terraform plan, The content will be stored in plain-text in the terraform state."),
 				Type:        schema.TypeString,
 				Computed:    true,
 				Sensitive:   false,
-			},
-			resourceFileAttrContentSensitive: {
-				Description: fmt.Sprintf("Content of the file similar to `%[1]s` attribute but with enabled sensitive flag. Prefer `%[2]s` to `%[1]s` to avoid leak of the content in the terraform log output. Mutually exclusive with attributes `%[1]s` and `%[3]s`.", resourceFileAttrContent, resourceFileAttrContentSensitive, resourceFileAttrSource),
-				Type:        schema.TypeString,
-				Computed:    true,
-				Sensitive:   true,
 			},
 			resourceFileAttrMd5Sum: {
 				Description: "MD5 checksum of the remote file contents on the system in base64 encoding.",
@@ -100,17 +94,9 @@ func dataFileSetResourceData(r *client.File, d *schema.ResourceData) diag.Diagno
 	_ = d.Set(resourceFileAttrBasename, path.Base(r.Path))
 
 	if r.Content != nil {
-		// Decide whether to store the retrieved content in "content" or "content_sensitive" attribute
-		if _, hasContent := d.GetOk(resourceFileAttrContent); hasContent {
-			_ = d.Set(resourceFileAttrContent, string(r.Content))
-		} else if _, hasContentSensitive := d.GetOk(resourceFileAttrContentSensitive); hasContentSensitive {
-			_ = d.Set(resourceFileAttrContentSensitive, string(r.Content))
-		} else {
-			return newDetailedDiagnostic(diag.Error, "inconsistent configuration", fmt.Sprintf(`cannot decide between "%s" and "%s" attribute`, resourceFileAttrContent, resourceFileAttrContentSensitive), nil)
-		}
+		_ = d.Set(resourceFileAttrContent, string(r.Content))
 	} else {
 		_ = d.Set(resourceFileAttrContent, nil)
-		_ = d.Set(resourceFileAttrContentSensitive, nil)
 	}
 
 	return nil
@@ -123,10 +109,9 @@ func dataFileRead(ctx context.Context, d *schema.ResourceData, meta interface{})
 	}
 
 	_, hasContent := d.GetOk(resourceFileAttrContent)
-	_, hasContentSensitive := d.GetOk(resourceFileAttrContentSensitive)
 
 	// Include content when attributes content or content_sensitive are used
-	includeContentOpt := client.FileClientIncludeContent(hasContent || hasContentSensitive)
+	includeContentOpt := client.FileClientIncludeContent(hasContent)
 	c := client.NewFileClient(p.System, includeContentOpt, client.FileClientCompression(true))
 
 	id := d.Id()
