@@ -103,7 +103,7 @@ resource "system_user" "johndoe" {
 resource "system_file" "ownership_id" {
   path    = "/root/hello-world.txt"
   content = "Hello world!"
-  uid     = system_group.johndoe.uid
+  uid     = system_user.johndoe.uid
   gid     = system_group.johndoe.gid
 }
 ```
