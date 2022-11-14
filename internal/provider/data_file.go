@@ -37,7 +37,7 @@ func dataFile() *schema.Resource {
 				ForceNew:    true,
 			},
 			resourceFileAttrMode: {
-				Description:      "Permissions of the file in octal format like `755`. Defaults to the umask of the system.",
+				Description:      "Permissions of the file in octal format like `755`.",
 				Type:             schema.TypeString,
 				Computed:         true,
 				ValidateDiagFunc: validate.FileMode(),
