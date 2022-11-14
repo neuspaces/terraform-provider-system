@@ -6,7 +6,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/neuspaces/terraform-provider-system/internal/client"
-	"github.com/neuspaces/terraform-provider-system/internal/validate"
 	"path"
 )
 
@@ -33,10 +32,9 @@ func dataFile() *schema.Resource {
 				ForceNew:    true,
 			},
 			resourceFileAttrMode: {
-				Description:      "Permissions of the file in octal format like `755`.",
-				Type:             schema.TypeString,
-				Computed:         true,
-				ValidateDiagFunc: validate.FileMode(),
+				Description: "Permissions of the file in octal format like `755`.",
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
 			resourceFileAttrUser: {
 				Description: "Name of the user who owns the file",
