@@ -18,10 +18,6 @@ func dataFile() *schema.Resource {
 
 		ReadContext: dataFileRead,
 
-		Importer: &schema.ResourceImporter{
-			StateContext: schema.ImportStatePassthroughContext,
-		},
-
 		SchemaVersion: 1,
 
 		Schema: map[string]*schema.Schema{
