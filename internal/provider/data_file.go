@@ -108,10 +108,7 @@ func dataFileRead(ctx context.Context, d *schema.ResourceData, meta interface{})
 		return diagErr
 	}
 
-	_, hasContent := d.GetOk(resourceFileAttrContent)
-
-	// Include content when attributes content or content_sensitive are used
-	includeContentOpt := client.FileClientIncludeContent(hasContent)
+	includeContentOpt := client.FileClientIncludeContent(true)
 	c := client.NewFileClient(p.System, includeContentOpt, client.FileClientCompression(true))
 
 	id := d.Id()
