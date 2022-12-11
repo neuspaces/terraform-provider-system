@@ -3,10 +3,11 @@ package provider
 import (
 	"context"
 	"fmt"
+	"path"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/neuspaces/terraform-provider-system/internal/client"
-	"path"
 )
 
 const dataFileName = "system_file"
@@ -77,6 +78,9 @@ func dataFile() *schema.Resource {
 }
 
 func dataFileSetResourceData(r *client.File, d *schema.ResourceData) diag.Diagnostics {
+	id := r.Path
+	d.SetId(id)
+
 	_ = d.Set(resourceFileAttrPath, r.Path)
 	_ = d.Set(resourceFileAttrMode, Mode(r.Mode).String())
 	_ = d.Set(resourceFileAttrUser, r.User)
