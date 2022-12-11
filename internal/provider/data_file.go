@@ -111,7 +111,7 @@ func dataFileRead(ctx context.Context, d *schema.ResourceData, meta interface{})
 	includeContentOpt := client.FileClientIncludeContent(true)
 	c := client.NewFileClient(p.System, includeContentOpt, client.FileClientCompression(true))
 
-	id := d.Id()
+	id := d.Get("path").(string)
 
 	r, err := c.Get(ctx, id)
 	if err != nil {
