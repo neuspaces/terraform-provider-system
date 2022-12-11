@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/neuspaces/terraform-provider-system/internal/client"
+	"github.com/neuspaces/terraform-provider-system/internal/validate"
 )
 
 const dataFileName = "system_file"
@@ -27,10 +28,11 @@ func dataFile() *schema.Resource {
 				Computed:    true,
 			},
 			resourceFileAttrPath: {
-				Description: "Absolute path to the file.",
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
+				Description:      "Absolute path to the file.",
+				Type:             schema.TypeString,
+				Required:         true,
+				ForceNew:         true,
+				ValidateDiagFunc: validate.AbsolutePath(),
 			},
 			resourceFileAttrMode: {
 				Description: "Permissions of the file in octal format like `755`.",
@@ -58,7 +60,7 @@ func dataFile() *schema.Resource {
 				Computed:    true,
 			},
 			resourceFileAttrContent: {
-				Description: fmt.Sprintf("Content of the file. Do not use for sensitive content! Only recommended for small text-based payloads such as configuration files etc. In a terraform plan, The content will be stored in plain-text in the terraform state."),
+				Description: fmt.Sprint("Content of the file. Do not use for sensitive content! Only recommended for small text-based payloads such as configuration files etc. In a terraform plan, The content will be stored in plain-text in the terraform state."),
 				Type:        schema.TypeString,
 				Computed:    true,
 				Sensitive:   false,
