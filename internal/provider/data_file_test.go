@@ -40,16 +40,6 @@ func TestAccDataFile_read_content(t *testing.T) {
 						),
 					)),
 					Check: resource.ComposeTestCheckFunc(
-						resource.TestCheckResourceAttr("system_file.datatest", "id", testRunFilePath(target, testConfig.fileName)),
-						resource.TestCheckResourceAttr("system_file.datatest", "path", testRunFilePath(target, testConfig.fileName)),
-						resource.TestCheckResourceAttr("system_file.datatest", "mode", "644"),
-						resource.TestCheckResourceAttr("system_file.datatest", "user", "root"),
-						resource.TestCheckResourceAttr("system_file.datatest", "uid", "0"),
-						resource.TestCheckResourceAttr("system_file.datatest", "group", "root"),
-						resource.TestCheckResourceAttr("system_file.datatest", "gid", "0"),
-						// echo -n 'hello world!' | openssl dgst -binary -md5 | openssl base64
-						resource.TestCheckResourceAttr("system_file.datatest", "md5sum", "/D/5joxqDTCH1RXARz+Gdw=="),
-
 						resource.TestCheckResourceAttr("data.system_file.datatest", "id", testRunFilePath(target, testConfig.fileName)),
 						resource.TestCheckResourceAttr("data.system_file.datatest", "path", testRunFilePath(target, testConfig.fileName)),
 						resource.TestCheckResourceAttr("data.system_file.datatest", "mode", "644"),
