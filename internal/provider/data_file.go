@@ -13,6 +13,20 @@ import (
 
 const dataFileName = "system_file"
 
+const (
+	dataFileAttrId       = "id"
+	dataFileAttrPath     = resourceFileAttrPath
+	dataFileAttrMode     = resourceFileAttrMode
+	dataFileAttrUser     = resourceFileAttrUser
+	dataFileAttrUid      = resourceFileAttrUid
+	dataFileAttrGroup    = resourceFileAttrGroup
+	dataFileAttrGid      = resourceFileAttrGid
+	dataFileAttrContent  = resourceFileAttrContent
+	dataFileAttrSource   = resourceFileAttrSource
+	dataFileAttrMd5Sum   = resourceFileAttrMd5Sum
+	dataFileAttrBasename = resourceFileAttrBasename
+)
+
 func dataFile() *schema.Resource {
 	return &schema.Resource{
 		Description: fmt.Sprintf("`%s` retrieves information about a file on the remote system.", dataFileName),
@@ -22,56 +36,56 @@ func dataFile() *schema.Resource {
 		SchemaVersion: 1,
 
 		Schema: map[string]*schema.Schema{
-			resourceFileAttrId: {
+			dataFileAttrId: {
 				Description: "ID of the file",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
-			resourceFileAttrPath: {
+			dataFileAttrPath: {
 				Description:      "Absolute path to the file.",
 				Type:             schema.TypeString,
 				Required:         true,
 				ForceNew:         true,
 				ValidateDiagFunc: validate.AbsolutePath(),
 			},
-			resourceFileAttrMode: {
+			dataFileAttrMode: {
 				Description: "Permissions of the file in octal format like `755`.",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
-			resourceFileAttrUser: {
+			dataFileAttrUser: {
 				Description: "Name of the user who owns the file",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
-			resourceFileAttrUid: {
+			dataFileAttrUid: {
 				Description: "ID of the user who owns the file",
 				Type:        schema.TypeInt,
 				Computed:    true,
 			},
-			resourceFileAttrGroup: {
+			dataFileAttrGroup: {
 				Description: "Name of the group that owns the file",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
-			resourceFileAttrGid: {
+			dataFileAttrGid: {
 				Description: "ID of the group that owns the file",
 				Type:        schema.TypeInt,
 				Computed:    true,
 			},
-			resourceFileAttrContent: {
+			dataFileAttrContent: {
 				Description: "Content of the file. Do not use for sensitive content! Only recommended for small text-based payloads such as configuration files etc. In a terraform plan, The content will be stored in plain-text in the terraform state.",
 				Type:        schema.TypeString,
 				Computed:    true,
 				Sensitive:   false,
 			},
-			resourceFileAttrMd5Sum: {
+			dataFileAttrMd5Sum: {
 				Description: "MD5 checksum of the remote file contents on the system in base64 encoding.",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
-			resourceFileAttrBasename: {
-				Description: fmt.Sprintf("Base name of the file. Returns the last element of path. Example: Given the attribute `%[1]s` is `/path/to/file.txt`, the `%[2]s` is `file.txt`.", resourceFileAttrPath, resourceFileAttrBasename),
+			dataFileAttrBasename: {
+				Description: fmt.Sprintf("Base name of the file. Returns the last element of path. Example: Given the attribute `%[1]s` is `/path/to/file.txt`, the `%[2]s` is `file.txt`.", dataFileAttrPath, dataFileAttrBasename),
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
@@ -83,20 +97,20 @@ func dataFileSetResourceData(r *client.File, d *schema.ResourceData) diag.Diagno
 	id := r.Path
 	d.SetId(id)
 
-	_ = d.Set(resourceFileAttrPath, r.Path)
-	_ = d.Set(resourceFileAttrMode, Mode(r.Mode).String())
-	_ = d.Set(resourceFileAttrUser, r.User)
-	_ = d.Set(resourceFileAttrUid, r.Uid)
-	_ = d.Set(resourceFileAttrGroup, r.Group)
-	_ = d.Set(resourceFileAttrGid, r.Gid)
+	_ = d.Set(dataFileAttrPath, r.Path)
+	_ = d.Set(dataFileAttrMode, Mode(r.Mode).String())
+	_ = d.Set(dataFileAttrUser, r.User)
+	_ = d.Set(dataFileAttrUid, r.Uid)
+	_ = d.Set(dataFileAttrGroup, r.Group)
+	_ = d.Set(dataFileAttrGid, r.Gid)
 
-	_ = d.Set(resourceFileAttrMd5Sum, r.Md5Sum)
-	_ = d.Set(resourceFileAttrBasename, path.Base(r.Path))
+	_ = d.Set(dataFileAttrMd5Sum, r.Md5Sum)
+	_ = d.Set(dataFileAttrBasename, path.Base(r.Path))
 
 	if r.Content != nil {
-		_ = d.Set(resourceFileAttrContent, string(r.Content))
+		_ = d.Set(dataFileAttrContent, string(r.Content))
 	} else {
-		_ = d.Set(resourceFileAttrContent, nil)
+		_ = d.Set(dataFileAttrContent, nil)
 	}
 
 	return nil
