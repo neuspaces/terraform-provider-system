@@ -65,12 +65,3 @@ func TestAccDataFile_read_content(t *testing.T) {
 		})
 	})
 }
-
-func testAccDataFileBlock(name string, path string, attrs ...tfbuild.BlockElement) tfbuild.FileElement {
-	resourceAttrs := []tfbuild.BlockElement{
-		tfbuild.AttributeString("path", path),
-	}
-	resourceAttrs = append(resourceAttrs, attrs...)
-
-	return tfbuild.Data("system_file", name, resourceAttrs...)
-}
