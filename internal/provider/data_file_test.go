@@ -35,7 +35,9 @@ func TestAccDataFile_read_content(t *testing.T) {
 							tfbuild.AttributeString("mode", "644"),
 							tfbuild.AttributeString("content", "hello world!"),
 						),
-						testAccDataFileBlock("datatest", testRunFilePath(target, testConfig.fileName)),
+						tfbuild.Data("system_file", "datatest",
+							tfbuild.AttributeTraversal("path", tfbuild.TraversalResourceAttribute("system_file", "datatest", "path")),
+						),
 					)),
 					Check: resource.ComposeTestCheckFunc(
 						resource.TestCheckResourceAttr("system_file.datatest", "id", testRunFilePath(target, testConfig.fileName)),
