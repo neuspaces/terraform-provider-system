@@ -1,14 +1,26 @@
 package provider_test
 
 import (
+	"fmt"
+	"sync/atomic"
+	"testing"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/neuspaces/terraform-provider-system/internal/acctest"
 	"github.com/neuspaces/terraform-provider-system/internal/acctest/tfbuild"
-	"testing"
 )
 
+func newTestDataFileConfig() testFileConfig {
+	id := atomic.AddUint32(&testFileId, 1)
+
+	return testFileConfig{
+		userName: fmt.Sprintf("user%d", id),
+		fileName: fmt.Sprintf("file-%d", id),
+	}
+}
+
 func TestAccDataFile_read_content(t *testing.T) {
-	testConfig := newTestFileConfig()
+	testConfig := newTestDataFileConfig()
 
 	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
 		t.Parallel()
