@@ -60,7 +60,7 @@ func dataFile() *schema.Resource {
 				Computed:    true,
 			},
 			resourceFileAttrContent: {
-				Description: fmt.Sprint("Content of the file. Do not use for sensitive content! Only recommended for small text-based payloads such as configuration files etc. In a terraform plan, The content will be stored in plain-text in the terraform state."),
+				Description: "Content of the file. Do not use for sensitive content! Only recommended for small text-based payloads such as configuration files etc. In a terraform plan, The content will be stored in plain-text in the terraform state.",
 				Type:        schema.TypeString,
 				Computed:    true,
 				Sensitive:   false,
