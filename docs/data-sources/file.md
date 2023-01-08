@@ -36,7 +36,7 @@ data "system_file" "hostname" {
 ### Read-Only
 
 - `basename` (String) Base name of the file. Returns the last element of path. Example: Given the attribute `path` is `/path/to/file.txt`, the `basename` is `file.txt`.
-- `content` (String, Sensitive) Content of the file. Marked as sensitive by default.
+- `content` (String, Sensitive) Content of the file
 - `gid` (Number) ID of the group that owns the file
 - `group` (String) Name of the group that owns the file
 - `id` (String) ID of the file
