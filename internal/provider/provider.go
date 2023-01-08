@@ -55,6 +55,7 @@ func providerDataSources() map[string]*schema.Resource {
 		dataReleaseName:  dataRelease(),
 		dataIdentityName: dataIdentity(),
 		dataCommandName:  dataCommand(),
+		dataFileName:     dataFile(),
 	}
 }
 
