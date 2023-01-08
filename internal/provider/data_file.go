@@ -22,14 +22,13 @@ const (
 	dataFileAttrGroup    = resourceFileAttrGroup
 	dataFileAttrGid      = resourceFileAttrGid
 	dataFileAttrContent  = resourceFileAttrContent
-	dataFileAttrSource   = resourceFileAttrSource
 	dataFileAttrMd5Sum   = resourceFileAttrMd5Sum
 	dataFileAttrBasename = resourceFileAttrBasename
 )
 
 func dataFile() *schema.Resource {
 	return &schema.Resource{
-		Description: fmt.Sprintf("`%s` retrieves information about a file on the remote system.", dataFileName),
+		Description: fmt.Sprintf("`%s` retrieves meta information about and content of a file on the remote system.", dataFileName),
 
 		ReadContext: dataFileRead,
 
@@ -74,10 +73,10 @@ func dataFile() *schema.Resource {
 				Computed:    true,
 			},
 			dataFileAttrContent: {
-				Description: "Content of the file. Do not use for sensitive content! Only recommended for small text-based payloads such as configuration files etc. In a terraform plan, The content will be stored in plain-text in the terraform state.",
+				Description: "Content of the file",
 				Type:        schema.TypeString,
 				Computed:    true,
-				Sensitive:   false,
+				Sensitive:   true,
 			},
 			dataFileAttrMd5Sum: {
 				Description: "MD5 checksum of the remote file contents on the system in base64 encoding.",
@@ -94,8 +93,7 @@ func dataFile() *schema.Resource {
 }
 
 func dataFileSetResourceData(r *client.File, d *schema.ResourceData) diag.Diagnostics {
-	id := r.Path
-	d.SetId(id)
+	d.SetId(r.Path)
 
 	_ = d.Set(dataFileAttrPath, r.Path)
 	_ = d.Set(dataFileAttrMode, Mode(r.Mode).String())
@@ -125,12 +123,14 @@ func dataFileRead(ctx context.Context, d *schema.ResourceData, meta interface{})
 	includeContentOpt := client.FileClientIncludeContent(true)
 	c := client.NewFileClient(p.System, includeContentOpt, client.FileClientCompression(true))
 
-	id := d.Get("path").(string)
+	filePath := d.Get(dataFileAttrPath).(string)
 
-	r, err := c.Get(ctx, id)
+	r, err := c.Get(ctx, filePath)
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
+	d.SetId(r.Path)
 
 	diagErr = dataFileSetResourceData(r, d)
 	if diagErr != nil {
