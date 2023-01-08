@@ -30,7 +30,7 @@ jobs:
 
       - 
         name: Set up Go cache
-        uses: actions/cache@v3.0.2
+        uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # v3.2.2
         with:
           path: |
             ~/go/pkg/mod
@@ -51,7 +51,7 @@ jobs:
 
       -
         name: Setup Terraform executable cache
-        uses: actions/cache@v3.0.2
+        uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # v3.2.2
         with:
           path: ~/terraform/bin
           key: ${{ runner.os }}-terraform-bin-1.2.8
@@ -151,7 +151,7 @@ jobs:
 
       - 
         name: Set up Go cache
-        uses: actions/cache@v3.0.2
+        uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # v3.2.2
         with:
           path: |
             ~/go/pkg/mod
@@ -190,7 +190,7 @@ jobs:
 
       -
         name: Setup Terraform executable cache
-        uses: actions/cache@v3.0.2
+        uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # v3.2.2
         with:
           path: ~/terraform/bin
           key: ${{ runner.os }}-terraform-bin-${{ matrix.terraform_version }}
