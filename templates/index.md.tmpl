@@ -54,23 +54,23 @@ resource "system_service_systemd" "nginx" {
 
 The SSH connection to the remote system can be established
 
-- [directly](./guides/ssh-connect#direct-connection), or
-- [indirectly via a bastion host](./guides/ssh-connect#proxy-bastion-host-connection)
+- [directly](./docs/guides/ssh-connect#direct-connection), or
+- [indirectly via a bastion host](./docs/guides/ssh-connect#proxy-bastion-host-connection)
 
-Refer to the page on [SSH connection](./guides/ssh-connect) for details and configuration examples.
+Refer to the page on [SSH connection](./docs/guides/ssh-connect) for details and configuration examples.
 
 ## SSH authentication
 
 The provider supports the following SSH authentication methods.
 
-- [password](./guides/ssh-auth#password)
-- [private key](./guides/ssh-auth#private-key)
-- [ssh agent](./guides/ssh-auth#agent)
+- [password](./docs/guides/ssh-auth#password)
+- [private key](./docs/guides/ssh-auth#private-key)
+- [ssh agent](./docs/guides/ssh-auth#agent)
 - user certificate
 
 The provider supports privilege escalation on the remote system via sudo.
 
-Refer to the page on [SSH authentication](./guides/ssh-auth) for details and configuration examples.
+Refer to the page on [SSH authentication](./docs/guides/ssh-auth) for details and configuration examples.
 
 ## SSH provisioner like configuration
 
