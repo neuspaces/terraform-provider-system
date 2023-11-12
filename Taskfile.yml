@@ -3,7 +3,7 @@ version: "3"
 vars:
   TF_PROVIDER_NAME: system
 
-  ACCTEST_TF_CLI_VERSION: 1.2.8
+  ACCTEST_TF_CLI_VERSION: 1.6.3
 
   BIN_PATH: ./.bin
 

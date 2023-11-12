@@ -54,7 +54,7 @@ jobs:
         uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # v3.2.2
         with:
           path: ~/terraform/bin
-          key: ${{ runner.os }}-terraform-bin-1.2.8
+          key: ${{ runner.os }}-terraform-bin-1.6.3
 
       -
         name: Download Terraform CLI
@@ -62,8 +62,8 @@ jobs:
         run: |
           mkdir -p "$HOME/terraform/bin"
           if [ ! -f "$HOME/terraform/bin/terraform" ]; then
-            wget -O '${{ runner.temp }}/terraform_1.2.8_linux_amd64.zip' 'https://releases.hashicorp.com/terraform/1.2.8/terraform_1.2.8_linux_amd64.zip'
-            unzip '${{ runner.temp }}/terraform_1.2.8_linux_amd64.zip' -d "$HOME/terraform/bin"
+            wget -O '${{ runner.temp }}/terraform_1.6.3_linux_amd64.zip' 'https://releases.hashicorp.com/terraform/1.6.3/terraform_1.6.3_linux_amd64.zip'
+            unzip '${{ runner.temp }}/terraform_1.6.3_linux_amd64.zip' -d "$HOME/terraform/bin"
           fi
           chmod +x "$HOME/terraform/bin/terraform"
           $HOME/terraform/bin/terraform version
@@ -130,7 +130,8 @@ jobs:
           # - '1.0.7'
           # - '1.1.7'
           # - '1.1.9'
-          - '1.2.8'
+          # - '1.2.8'
+          - '1.6.3'
     
     steps:
       -
