@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
 	"encoding/base64"
@@ -24,8 +25,7 @@ type File struct {
 	Gid   int
 
 	// Content optionally contains the file contents when enabled with FileClientIncludeContent
-	Content []byte
-	Source  io.Reader
+	Content io.Reader
 	Md5Sum  string
 }
 
@@ -149,7 +149,7 @@ func (c *fileClient) Get(ctx context.Context, path string) (*File, error) {
 			return nil, ErrFileUnexpected.Raise(err)
 		}
 
-		file.Content = catRes.Stdout
+		file.Content = bytes.NewReader(catRes.Stdout)
 	}
 
 	return file, nil
@@ -161,13 +161,13 @@ func (c *fileClient) Create(ctx context.Context, f File) error {
 	var createCmds []Command
 	var createCmdIn io.Reader
 
-	if f.Source != nil {
+	if f.Content != nil {
 		// File content is provided from io.Reader
 
 		if !c.compress {
 			// Without transport compression
 			createCmds = append(createCmds, NewCommand(fmt.Sprintf(`cat - > %s`, pathSub)))
-			createCmdIn = f.Source
+			createCmdIn = f.Content
 		} else {
 			// With transport compression
 			createCmds = append(createCmds, NewCommand(fmt.Sprintf(`gzip -d > %s`, pathSub)))
@@ -180,7 +180,7 @@ func (c *fileClient) Create(ctx context.Context, f File) error {
 			}
 
 			go func() {
-				_, _ = io.Copy(gzipWriter, f.Source)
+				_, _ = io.Copy(gzipWriter, f.Content)
 				_ = gzipWriter.Close()
 				_ = pipeWriter.Close()
 			}()
@@ -234,13 +234,13 @@ func (c *fileClient) Update(ctx context.Context, f File) error {
 	var updateCmds []Command
 	var updateCmdIn io.Reader
 
-	if f.Source != nil {
+	if f.Content != nil {
 		// File content is provided from io.Reader
 
 		if !c.compress {
 			// Without transport compression
 			updateCmds = append(updateCmds, NewCommand(fmt.Sprintf(`cat - > %s`, pathSub)))
-			updateCmdIn = f.Source
+			updateCmdIn = f.Content
 		} else {
 			// With transport compression
 			updateCmds = append(updateCmds, NewCommand(fmt.Sprintf(`gzip -d > %s`, pathSub)))
@@ -253,7 +253,7 @@ func (c *fileClient) Update(ctx context.Context, f File) error {
 			}
 
 			go func() {
-				_, _ = io.Copy(gzipWriter, f.Source)
+				_, _ = io.Copy(gzipWriter, f.Content)
 				_ = gzipWriter.Close()
 				_ = pipeWriter.Close()
 			}()

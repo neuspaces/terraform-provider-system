@@ -256,7 +256,7 @@ func resourceFileGetResourceData(sources *source.Registry, d *schema.ResourceDat
 			return nil, diag.FromErr(err)
 		}
 
-		r.Source = s
+		r.Content = s
 	}
 
 	return r, nil
@@ -274,11 +274,16 @@ func resourceFileSetResourceData(r *client.File, d *schema.ResourceData) diag.Di
 	_ = d.Set(resourceFileAttrBasename, path.Base(r.Path))
 
 	if r.Content != nil {
-		// Decide whether to store the retrieved content in "content" or "content_sensitive" attribute
+		content, err := io.ReadAll(r.Content)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+		// Decide whether to store the retrieved content in `content` or `content_sensitive` attribute
 		if _, hasContent := d.GetOk(resourceFileAttrContent); hasContent {
-			_ = d.Set(resourceFileAttrContent, string(r.Content))
+			_ = d.Set(resourceFileAttrContent, string(content))
 		} else if _, hasContentSensitive := d.GetOk(resourceFileAttrContentSensitive); hasContentSensitive {
-			_ = d.Set(resourceFileAttrContentSensitive, string(r.Content))
+			_ = d.Set(resourceFileAttrContentSensitive, string(content))
 		} else {
 			return newDetailedDiagnostic(diag.Error, "inconsistent configuration", fmt.Sprintf(`cannot decide between "%s" and "%s" attribute`, resourceFileAttrContent, resourceFileAttrContentSensitive), nil)
 		}
@@ -310,8 +315,8 @@ func resourceFileCreateFactory(sources *source.Registry) schema.CreateContextFun
 		}
 
 		// Close source if source is an io.Closer
-		if sourceCloser, isCloser := r.Source.(io.Closer); isCloser {
-			err := sourceCloser.Close()
+		if contentCloser, isCloser := r.Content.(io.Closer); isCloser {
+			err := contentCloser.Close()
 			if err != nil {
 				return diag.FromErr(err)
 			}

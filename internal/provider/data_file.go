@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/neuspaces/terraform-provider-system/internal/lib/filemode"
+	"io"
 	"path"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -107,7 +108,11 @@ func dataFileSetResourceData(r *client.File, d *schema.ResourceData) diag.Diagno
 	_ = d.Set(dataFileAttrBasename, path.Base(r.Path))
 
 	if r.Content != nil {
-		_ = d.Set(dataFileAttrContent, string(r.Content))
+		content, err := io.ReadAll(r.Content)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+		_ = d.Set(dataFileAttrContent, string(content))
 	} else {
 		_ = d.Set(dataFileAttrContent, nil)
 	}
