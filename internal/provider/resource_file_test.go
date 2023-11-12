@@ -538,6 +538,48 @@ func TestAccFile_update_content(t *testing.T) {
 	})
 }
 
+func TestAccFile_update_content_sensitive(t *testing.T) {
+	testConfig := newTestFileConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("test", testRunFilePath(target, testConfig.fileName),
+							tfbuild.AttributeString("content_sensitive", "hello secure world!"),
+						),
+					)),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("system_file.test", "id", testRunFilePath(target, testConfig.fileName)),
+						resource.TestCheckResourceAttr("system_file.test", "path", testRunFilePath(target, testConfig.fileName)),
+						// echo -n 'hello secure world!' | openssl dgst -binary -md5 | openssl base64
+						resource.TestCheckResourceAttr("system_file.test", "md5sum", "TGLT7MnuVS/votmenbFc+w=="),
+					),
+				},
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("test", testRunFilePath(target, testConfig.fileName),
+							tfbuild.AttributeString("content", "hello secure universe!"),
+						),
+					)),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("system_file.test", "id", testRunFilePath(target, testConfig.fileName)),
+						resource.TestCheckResourceAttr("system_file.test", "path", testRunFilePath(target, testConfig.fileName)),
+						// echo -n 'hello secure universe!' | openssl dgst -binary -md5 | openssl base64
+						resource.TestCheckResourceAttr("system_file.test", "md5sum", "2Zf2/lbjchQgfqOpi07pbA=="),
+					),
+				},
+			},
+		})
+	})
+}
+
 func TestAccFile_update_source(t *testing.T) {
 	testConfig := newTestFileConfig()
 
