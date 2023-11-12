@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"github.com/neuspaces/terraform-provider-system/internal/lib/filemode"
 	"path"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -89,7 +90,7 @@ func dataFileMetaSetResourceData(r *client.File, d *schema.ResourceData) diag.Di
 	d.SetId(r.Path)
 
 	_ = d.Set(dataFileMetaAttrPath, r.Path)
-	_ = d.Set(dataFileMetaAttrMode, Mode(r.Mode).String())
+	_ = d.Set(dataFileMetaAttrMode, filemode.Mode(r.Mode).String())
 	_ = d.Set(dataFileMetaAttrUser, r.User)
 	_ = d.Set(dataFileMetaAttrUid, r.Uid)
 	_ = d.Set(dataFileMetaAttrGroup, r.Group)

@@ -6,6 +6,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/neuspaces/terraform-provider-system/internal/client"
+	"github.com/neuspaces/terraform-provider-system/internal/lib/filemode"
 	"github.com/neuspaces/terraform-provider-system/internal/validate"
 	"path"
 )
@@ -106,7 +107,7 @@ func resourceFolderGetResourceData(d *schema.ResourceData) (*client.Folder, diag
 	}
 
 	if d.HasChange(resourceFolderAttrMode) {
-		r.Mode = mustParseMode(d.Get(resourceFolderAttrMode).(string))
+		r.Mode = filemode.MustParse(d.Get(resourceFolderAttrMode).(string))
 	}
 
 	if d.HasChange(resourceFolderAttrUser) {
@@ -130,7 +131,7 @@ func resourceFolderGetResourceData(d *schema.ResourceData) (*client.Folder, diag
 
 func resourceFolderSetResourceData(r *client.Folder, d *schema.ResourceData) diag.Diagnostics {
 	_ = d.Set(resourceFolderAttrPath, r.Path)
-	_ = d.Set(resourceFolderAttrMode, Mode(r.Mode).String())
+	_ = d.Set(resourceFolderAttrMode, filemode.Mode(r.Mode).String())
 	_ = d.Set(resourceFolderAttrUser, r.User)
 	_ = d.Set(resourceFolderAttrUid, r.Uid)
 	_ = d.Set(resourceFolderAttrGroup, r.Group)

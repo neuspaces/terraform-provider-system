@@ -220,7 +220,7 @@ func resourceFileGetResourceData(sources *source.Registry, d *schema.ResourceDat
 	}
 
 	if d.HasChange(resourceFileAttrMode) {
-		r.Mode = mustParseMode(d.Get(resourceFileAttrMode).(string))
+		r.Mode = filemode.MustParse(d.Get(resourceFileAttrMode).(string))
 	}
 
 	if d.HasChange(resourceFileAttrUser) {
@@ -264,7 +264,7 @@ func resourceFileGetResourceData(sources *source.Registry, d *schema.ResourceDat
 
 func resourceFileSetResourceData(r *client.File, d *schema.ResourceData) diag.Diagnostics {
 	_ = d.Set(resourceFileAttrPath, r.Path)
-	_ = d.Set(resourceFileAttrMode, Mode(r.Mode).String())
+	_ = d.Set(resourceFileAttrMode, filemode.Mode(r.Mode).String())
 	_ = d.Set(resourceFileAttrUser, r.User)
 	_ = d.Set(resourceFileAttrUid, r.Uid)
 	_ = d.Set(resourceFileAttrGroup, r.Group)
