@@ -156,7 +156,7 @@ This section describes general notes for using the `system_file` resource.
 
 ### Optional
 
-- `content` (String) Content of the file. Only recommended for small text-based payloads such as configuration files etc. In a terraform plan,  The content will be stored in plain-text in the terraform state. Mutually exclusive with attributes `content_sensitive` and `source`.
+- `content` (String) Content of the file. Only recommended for small text-based payloads such as configuration files etc. The content will be stored in plain-text in the terraform state. Mutually exclusive with attributes `content_sensitive` and `source`.
 - `content_sensitive` (String, Sensitive) Content of the file similar to `content` attribute but with enabled sensitive flag. Prefer `content_sensitive` to `content` to avoid leak of the content in the terraform log output. Mutually exclusive with attributes `content` and `source`.
 - `gid` (Number) ID of the group that owns the file
 - `group` (String) Name of the group that owns the file
