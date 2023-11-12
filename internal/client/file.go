@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"github.com/neuspaces/terraform-provider-system/internal/lib/stat"
 	"github.com/neuspaces/terraform-provider-system/internal/lib/typederror"
@@ -189,7 +188,6 @@ func (c *fileClient) Create(ctx context.Context, f File) error {
 			// Remote command stdin is the pipe output
 			createCmdIn = pipeReader
 		}
-
 	} else {
 		// Create file without content
 		createCmds = append(createCmds, NewCommand(fmt.Sprintf(`touch %s`, pathSub)))
@@ -234,6 +232,36 @@ func (c *fileClient) Update(ctx context.Context, f File) error {
 	pathSub := `"${path}"`
 
 	var updateCmds []Command
+	var updateCmdIn io.Reader
+
+	if f.Source != nil {
+		// File content is provided from io.Reader
+
+		if !c.compress {
+			// Without transport compression
+			updateCmds = append(updateCmds, NewCommand(fmt.Sprintf(`cat - > %s`, pathSub)))
+			updateCmdIn = f.Source
+		} else {
+			// With transport compression
+			updateCmds = append(updateCmds, NewCommand(fmt.Sprintf(`gzip -d > %s`, pathSub)))
+
+			// Setup pipe to compress source
+			pipeReader, pipeWriter := io.Pipe()
+			gzipWriter, err := gzip.NewWriterLevel(pipeWriter, gzip.BestCompression)
+			if err != nil {
+				return ErrFile.Raise(err)
+			}
+
+			go func() {
+				_, _ = io.Copy(gzipWriter, f.Source)
+				_ = gzipWriter.Close()
+				_ = pipeWriter.Close()
+			}()
+
+			// Remote command stdin is the pipe output
+			updateCmdIn = pipeReader
+		}
+	}
 
 	if f.Mode != 0 {
 		updateCmds = append(updateCmds, &ChmodCommand{Path: pathSub, Mode: f.Mode})
@@ -251,16 +279,12 @@ func (c *fileClient) Update(ctx context.Context, f File) error {
 		updateCmds = append(updateCmds, &ChgrpCommand{Path: pathSub, Group: f.Group})
 	}
 
-	if f.Content != nil || f.Source != nil {
-		return ErrFile.Raise(errors.New("updating content is not supported"))
-	}
-
 	if len(updateCmds) == 0 {
 		// Nothing to do because up-to-date
 		return nil
 	}
 
-	cmd := NewCommand(fmt.Sprintf(`_do() { path=$1; [ -f "${path}" ] || return %[2]d; { %[3]s; } || return 1; }; _do '%[1]s';`, f.Path, codeFileNotFound, CompositeCommand(updateCmds).Command()))
+	cmd := NewInputCommand(fmt.Sprintf(`_do() { path=$1; [ -f "${path}" ] || return %[2]d; { %[3]s; } || return 1; }; _do '%[1]s';`, f.Path, codeFileNotFound, CompositeCommand(updateCmds).Command()), updateCmdIn)
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
 		return ErrFile.Raise(err)

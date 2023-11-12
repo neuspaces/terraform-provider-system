@@ -108,11 +108,10 @@ func resourceFile() *schema.Resource {
 				ConflictsWith: []string{resourceFileAttrGroup},
 			},
 			resourceFileAttrContent: {
-				Description: fmt.Sprintf("Content of the file. Only recommended for small text-based payloads such as configuration files etc. In a terraform plan,  The content will be stored in plain-text in the terraform state. Mutually exclusive with attributes `%[2]s` and `%[3]s`.", resourceFileAttrContent, resourceFileAttrContentSensitive, resourceFileAttrSource),
+				Description: fmt.Sprintf("Content of the file. Only recommended for small text-based payloads such as configuration files etc. The content will be stored in plain-text in the terraform state. Mutually exclusive with attributes `%[2]s` and `%[3]s`.", resourceFileAttrContent, resourceFileAttrContentSensitive, resourceFileAttrSource),
 				Type:        schema.TypeString,
 				Optional:    true,
 				Sensitive:   false,
-				ForceNew:    true,
 				ConflictsWith: []string{
 					resourceFileAttrContentSensitive,
 					resourceFileAttrSource,
@@ -123,7 +122,6 @@ func resourceFile() *schema.Resource {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Sensitive:   true,
-				ForceNew:    true,
 				ConflictsWith: []string{
 					resourceFileAttrContent,
 					resourceFileAttrSource,
