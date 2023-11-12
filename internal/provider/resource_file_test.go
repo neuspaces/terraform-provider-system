@@ -3,6 +3,7 @@ package provider_test
 import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 	"github.com/neuspaces/terraform-provider-system/internal/acctest"
 	"github.com/neuspaces/terraform-provider-system/internal/acctest/tfbuild"
 	"github.com/neuspaces/terraform-provider-system/internal/lib/osrelease"
@@ -647,6 +648,165 @@ func TestAccFile_fail_existing(t *testing.T) {
 						testAccFileBlock("duplicate", testRunFilePath(target, testConfig.fileName)),
 					)),
 					ExpectError: regexp.MustCompile(`Error: file resource: file exists`),
+				},
+			},
+		})
+	})
+}
+
+func TestAccFile_import(t *testing.T) {
+	testConfig := newTestFileConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("existing", testRunFilePath(target, testConfig.fileName),
+							tfbuild.AttributeString("mode", "644"),
+							tfbuild.AttributeString("content", "first existing line\nsecond existing line"),
+						),
+					)),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("system_file.existing", "id", testRunFilePath(target, testConfig.fileName)),
+					),
+				},
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("import", testRunFilePath(target, testConfig.fileName),
+							tfbuild.AttributeString("mode", "644"),
+							tfbuild.AttributeString("content", "first existing line\nline in between\nsecond existing line"),
+						),
+					)),
+					ImportState:        true,
+					ImportStatePersist: false,
+					ResourceName:       "system_file.import",
+					ImportStateId:      testRunFilePath(target, testConfig.fileName),
+					ImportStateVerify:  true,
+					ImportStateVerifyIgnore: []string{
+						"content",
+					},
+				},
+			},
+		})
+	})
+}
+
+func TestAccFile_import_content(t *testing.T) {
+	testConfig := newTestFileConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("existing", testRunFilePath(target, testConfig.fileName),
+							tfbuild.AttributeString("mode", "644"),
+							tfbuild.AttributeString("content", "first existing line\nsecond existing line"),
+						),
+					)),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("system_file.existing", "id", testRunFilePath(target, testConfig.fileName)),
+					),
+				},
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("import", testRunFilePath(target, testConfig.fileName),
+							tfbuild.AttributeString("mode", "644"),
+							tfbuild.AttributeString("content", "first existing line\nline in between\nsecond existing line"),
+						),
+					)),
+					ImportState:        true,
+					ImportStatePersist: false,
+					ResourceName:       "system_file.import",
+					ImportStateId:      fmt.Sprintf("%s:content", testRunFilePath(target, testConfig.fileName)),
+					ImportStateVerify:  true,
+					ImportStateVerifyIgnore: []string{
+						"content",
+					},
+					ImportStateCheck: func(states []*terraform.InstanceState) error {
+						if len(states) != 1 {
+							return fmt.Errorf("expected 1 state")
+						}
+
+						importState := states[0]
+
+						importStateContent := importState.Attributes["content"]
+						expectedContent := "first existing line\nsecond existing line"
+						if importStateContent != expectedContent {
+							return fmt.Errorf("expected `system_file.import.content` attribute to be %s, got: %s", expectedContent, importStateContent)
+						}
+
+						return nil
+					},
+				},
+			},
+		})
+	})
+}
+
+func TestAccFile_import_content_sensitive(t *testing.T) {
+	testConfig := newTestFileConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("existing", testRunFilePath(target, testConfig.fileName),
+							tfbuild.AttributeString("mode", "644"),
+							tfbuild.AttributeString("content_sensitive", "first existing line\nsecond existing line"),
+						),
+					)),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("system_file.existing", "id", testRunFilePath(target, testConfig.fileName)),
+					),
+				},
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("import", testRunFilePath(target, testConfig.fileName),
+							tfbuild.AttributeString("mode", "644"),
+							tfbuild.AttributeString("content_sensitive", "first existing line\nline in between\nsecond existing line"),
+						),
+					)),
+					ImportState:        true,
+					ImportStatePersist: false,
+					ResourceName:       "system_file.import",
+					ImportStateId:      fmt.Sprintf("%s:content_sensitive", testRunFilePath(target, testConfig.fileName)),
+					ImportStateVerify:  true,
+					ImportStateVerifyIgnore: []string{
+						"content_sensitive",
+					},
+					ImportStateCheck: func(states []*terraform.InstanceState) error {
+						if len(states) != 1 {
+							return fmt.Errorf("expected 1 state")
+						}
+
+						importState := states[0]
+
+						importStateContentSensitive := importState.Attributes["content_sensitive"]
+						expectedContentSensitive := "first existing line\nsecond existing line"
+						if importStateContentSensitive != expectedContentSensitive {
+							return fmt.Errorf("expected `system_file.import.content` attribute to be %s, got: %s", expectedContentSensitive, importStateContentSensitive)
+						}
+
+						return nil
+					},
 				},
 			},
 		})

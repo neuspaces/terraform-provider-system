@@ -130,7 +130,7 @@ The connection to the HTTP server of the source URL is established from the clie
 Changes of the file on the remote server are detected and will cause the file to be downloaded from the source URL again. Changes of the content of the source URL are detected via changes in the ETag returned in the http response. If an ETag is not returned by the web server, changes will not be detected.
 
 ```terraform
-resource "file" "https_source" {
+resource "system_file" "https_source" {
   path   = "/root/terraform_1.2.8_SHA256SUMS"
   source = "https://releases.hashicorp.com/terraform/1.2.8/terraform_1.2.8_SHA256SUMS"
 }
@@ -171,4 +171,32 @@ This section describes general notes for using the `system_file` resource.
 - `id` (String) ID of the file
 - `md5sum` (String) MD5 checksum of the remote file contents on the system in base64 encoding.
 
+## Import
 
+### Basic import without content
+
+Use the following syntax to import a `system_file` resource. The command requires the absolute path to the file on the remote.
+
+```shell
+terraform import system_file.test /path/to/file
+```
+
+This import will not read the content of the remote file.
+
+-> After the import, the state does not store the content of the file.
+
+### Import with `content` attribute
+
+Use the following syntax to import a `system_file` resource with a `content` attribute. Append the suffix `:content` to the absolute path to the file on the remote.
+
+```shell
+terraform import system_file.test /path/to/file:content
+```
+
+### Import with `content_sensitive` attribute
+
+Use the following syntax to import a `system_file` resource with a `content_sensitive` attribute. Append the suffix `:content_sensitive` to the absolute path to the file on the remote.
+
+```shell
+terraform import system_file.test /path/to/file:content_sensitive
+```

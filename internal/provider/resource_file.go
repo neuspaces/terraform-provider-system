@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/neuspaces/terraform-provider-system/internal/client"
+	"github.com/neuspaces/terraform-provider-system/internal/lib/filemode"
 	"github.com/neuspaces/terraform-provider-system/internal/source"
 	"github.com/neuspaces/terraform-provider-system/internal/validate"
 	"io"
@@ -54,7 +55,7 @@ func resourceFile() *schema.Resource {
 		DeleteContext: resourceFileDelete,
 
 		Importer: &schema.ResourceImporter{
-			StateContext: schema.ImportStatePassthroughContext,
+			StateContext: resourceFileImportState,
 		},
 
 		SchemaVersion: 1,
@@ -215,7 +216,6 @@ func resourceFileGetResourceData(sources *source.Registry, d *schema.ResourceDat
 		Group:   "",
 		Gid:     -1,
 		Content: nil,
-		Source:  nil,
 		Md5Sum:  "",
 	}
 
@@ -242,12 +242,12 @@ func resourceFileGetResourceData(sources *source.Registry, d *schema.ResourceDat
 	if d.HasChange(resourceFileAttrContent) {
 		content := d.Get(resourceFileAttrContent).(string)
 		if content != "" {
-			r.Source = bytes.NewReader([]byte(content))
+			r.Content = bytes.NewReader([]byte(content))
 		}
 	} else if d.HasChange(resourceFileAttrContentSensitive) {
 		content := d.Get(resourceFileAttrContentSensitive).(string)
 		if content != "" {
-			r.Source = bytes.NewReader([]byte(content))
+			r.Content = bytes.NewReader([]byte(content))
 		}
 	} else if d.HasChange(resourceFileAttrSource) {
 		sourceUrlStr := d.Get(resourceFileAttrSource).(string)
@@ -285,7 +285,8 @@ func resourceFileSetResourceData(r *client.File, d *schema.ResourceData) diag.Di
 		} else if _, hasContentSensitive := d.GetOk(resourceFileAttrContentSensitive); hasContentSensitive {
 			_ = d.Set(resourceFileAttrContentSensitive, string(content))
 		} else {
-			return newDetailedDiagnostic(diag.Error, "inconsistent configuration", fmt.Sprintf(`cannot decide between "%s" and "%s" attribute`, resourceFileAttrContent, resourceFileAttrContentSensitive), nil)
+			// Store in `content` attribute if ambiguous (applies to import)
+			_ = d.Set(resourceFileAttrContent, string(content))
 		}
 	} else {
 		_ = d.Set(resourceFileAttrContent, nil)
@@ -341,9 +342,10 @@ func resourceFileRead(ctx context.Context, d *schema.ResourceData, meta interfac
 
 	_, hasContent := d.GetOk(resourceFileAttrContent)
 	_, hasContentSensitive := d.GetOk(resourceFileAttrContentSensitive)
+	_, hasSource := d.GetOk(resourceFileAttrSource)
 
-	// Include content when attributes content or content_sensitive are used
-	includeContentOpt := client.FileClientIncludeContent(hasContent || hasContentSensitive)
+	// Include content when attributes `content` or `content_sensitive` are set or when attribute `source` is not set
+	includeContentOpt := client.FileClientIncludeContent((hasContent || hasContentSensitive) && !hasSource)
 	c := client.NewFileClient(p.System, includeContentOpt, client.FileClientCompression(true))
 
 	id := d.Id()
@@ -400,4 +402,31 @@ func resourceFileDelete(ctx context.Context, d *schema.ResourceData, meta interf
 	}
 
 	return nil
+}
+
+func resourceFileImportState(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	rs := d.State()
+
+	importId := rs.ID
+	importIdParts := strings.Split(importId, ":")
+
+	if len(importIdParts) < 1 || len(importIdParts) > 2 {
+		return nil, fmt.Errorf("unexpected import id format")
+	}
+
+	if len(importIdParts) == 2 {
+		if importIdParts[1] == "content" {
+			// Import with `content` attribute
+			d.Set(resourceFileAttrContent, "_")
+		} else if importIdParts[1] == "content_sensitive" {
+			// Import with `content_sensitive` attribute
+			d.Set(resourceFileAttrContentSensitive, "_")
+		} else {
+			return nil, fmt.Errorf("unexpected import id format")
+		}
+	}
+
+	d.SetId(importIdParts[0])
+
+	return []*schema.ResourceData{d}, nil
 }
