@@ -184,7 +184,7 @@ func TestAccFile_create_source_http(t *testing.T) {
 						acctest.ProviderConfigBlock(target.Configs.Default()),
 						testAccFileBlock("test", testRunFilePath(target, testConfig.fileName),
 							tfbuild.AttributeString("mode", "644"),
-							tfbuild.AttributeString("source", "http://releases.hashicorp.com/terraform/1.0.5/terraform_1.0.5_SHA256SUMS"),
+							tfbuild.AttributeString("source", "http://releases.hashicorp.com/terraform/1.6.3/terraform_1.6.3_SHA256SUMS"),
 						),
 					)),
 					Check: resource.ComposeTestCheckFunc(
@@ -195,8 +195,8 @@ func TestAccFile_create_source_http(t *testing.T) {
 						resource.TestCheckResourceAttr("system_file.test", "uid", "0"),
 						resource.TestCheckResourceAttr("system_file.test", "group", "root"),
 						resource.TestCheckResourceAttr("system_file.test", "gid", "0"),
-						// curl -s 'https://releases.hashicorp.com/terraform/1.0.5/terraform_1.0.5_SHA256SUMS' | openssl dgst -binary -md5 | openssl base64
-						resource.TestCheckResourceAttr("system_file.test", "md5sum", "U2RQqLrovJQrOJnOJ1707g=="),
+						// curl -s 'https://releases.hashicorp.com/terraform/1.6.3/terraform_1.6.3_SHA256SUMS' | openssl dgst -binary -md5 | openssl base64
+						resource.TestCheckResourceAttr("system_file.test", "md5sum", "5TkHdh91Xu5JW7tB6Id3NA=="),
 					),
 				},
 			},
@@ -220,7 +220,7 @@ func TestAccFile_create_source_https(t *testing.T) {
 						acctest.ProviderConfigBlock(target.Configs.Default()),
 						testAccFileBlock("test", testRunFilePath(target, testConfig.fileName),
 							tfbuild.AttributeString("mode", "644"),
-							tfbuild.AttributeString("source", "https://releases.hashicorp.com/terraform/1.0.5/terraform_1.0.5_SHA256SUMS"),
+							tfbuild.AttributeString("source", "https://releases.hashicorp.com/terraform/1.6.3/terraform_1.6.3_SHA256SUMS"),
 						),
 					)),
 					Check: resource.ComposeTestCheckFunc(
@@ -231,8 +231,8 @@ func TestAccFile_create_source_https(t *testing.T) {
 						resource.TestCheckResourceAttr("system_file.test", "uid", "0"),
 						resource.TestCheckResourceAttr("system_file.test", "group", "root"),
 						resource.TestCheckResourceAttr("system_file.test", "gid", "0"),
-						// curl -s 'https://releases.hashicorp.com/terraform/1.0.5/terraform_1.0.5_SHA256SUMS' | openssl dgst -binary -md5 | openssl base64
-						resource.TestCheckResourceAttr("system_file.test", "md5sum", "U2RQqLrovJQrOJnOJ1707g=="),
+						// curl -s 'https://releases.hashicorp.com/terraform/1.6.3/terraform_1.6.3_SHA256SUMS' | openssl dgst -binary -md5 | openssl base64
+						resource.TestCheckResourceAttr("system_file.test", "md5sum", "5TkHdh91Xu5JW7tB6Id3NA=="),
 					),
 				},
 			},
