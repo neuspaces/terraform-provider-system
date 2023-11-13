@@ -2,7 +2,7 @@ package client
 
 import (
 	"context"
-	"github.com/neuspaces/terraform-provider-system/internal/lib/typederror"
+	"errors"
 )
 
 type Service struct {
@@ -72,13 +72,13 @@ type ServiceClient interface {
 }
 
 var (
-	ErrService = typederror.NewRoot("service resource")
+	ErrService = errors.New("service resource")
 
-	ErrServiceNotFound = typederror.New("service not found", ErrService)
+	ErrServiceNotFound = errors.Join(ErrService, errors.New("service not found"))
 
-	ErrServiceRunlevelNotFound = typederror.New("runlevel not found", ErrService)
+	ErrServiceRunlevelNotFound = errors.Join(ErrService, errors.New("runlevel not found"))
 
-	ErrServiceOperation = typederror.New("failed service operation", ErrService)
+	ErrServiceOperation = errors.Join(ErrService, errors.New("failed service operation"))
 
-	ErrServiceUnexpected = typederror.New("unexpected error", ErrService)
+	ErrServiceUnexpected = errors.Join(ErrService, errors.New("unexpected error"))
 )

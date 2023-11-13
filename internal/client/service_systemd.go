@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/neuspaces/terraform-provider-system/internal/client/systemd"
@@ -30,7 +31,7 @@ func (c *systemdServiceClient) Get(ctx context.Context, args ServiceGetArgs) (*S
 
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return nil, ErrService.Raise(err)
+		return nil, errors.Join(ErrService, err)
 	}
 
 	if res.ExitCode != 0 {
@@ -40,7 +41,7 @@ func (c *systemdServiceClient) Get(ctx context.Context, args ServiceGetArgs) (*S
 	// Parse properties
 	props, err := godotenv.Parse(bytes.NewReader(res.Stdout))
 	if err != nil {
-		return nil, ErrServiceUnexpected.Raise(err)
+		return nil, errors.Join(ErrServiceUnexpected, err)
 	}
 
 	// Test service unit existence
@@ -150,17 +151,17 @@ func (c *systemdServiceClient) Apply(ctx context.Context, s Service, opts ...Ser
 	// Parse output properties
 	stdoutProps, err := godotenv.Parse(bytes.NewReader(res.Stdout))
 	if err != nil {
-		return ErrServiceUnexpected.Raise(err)
+		return errors.Join(ErrServiceUnexpected, err)
 	}
 
 	if s.Enabled != nil {
 		if *s.Enabled {
 			if rc := stdoutProps["systemctl_enable_rc"]; rc != "0" {
-				return ErrServiceOperation.Raise(fmt.Errorf("systemctl enable '%[1]s.service' returned unexpected exit code %[2]s", s.Name, rc))
+				return errors.Join(ErrServiceOperation, fmt.Errorf("systemctl enable '%[1]s.service' returned unexpected exit code %[2]s", s.Name, rc))
 			}
 		} else {
 			if rc := stdoutProps["systemctl_disable_rc"]; rc != "0" {
-				return ErrServiceOperation.Raise(fmt.Errorf("systemctl disable '%[1]s.service' returned unexpected exit code %[2]s", s.Name, rc))
+				return errors.Join(ErrServiceOperation, fmt.Errorf("systemctl disable '%[1]s.service' returned unexpected exit code %[2]s", s.Name, rc))
 			}
 		}
 	}
@@ -168,21 +169,21 @@ func (c *systemdServiceClient) Apply(ctx context.Context, s Service, opts ...Ser
 	if s.Status != nil {
 		if *s.Status == ServiceStatusStarted {
 			if rc := stdoutProps["systemctl_start_rc"]; rc != "0" {
-				return ErrServiceOperation.Raise(fmt.Errorf("systemctl start '%[1]s.service' returned unexpected exit code %[2]s", s.Name, rc))
+				return errors.Join(ErrServiceOperation, fmt.Errorf("systemctl start '%[1]s.service' returned unexpected exit code %[2]s", s.Name, rc))
 			}
 		} else if *s.Status == ServiceStatusStopped {
 			if rc := stdoutProps["systemctl_stop_rc"]; rc != "0" {
-				return ErrServiceOperation.Raise(fmt.Errorf("systemctl stop '%[1]s.service' returned unexpected exit code %[2]s", s.Name, rc))
+				return errors.Join(ErrServiceOperation, fmt.Errorf("systemctl stop '%[1]s.service' returned unexpected exit code %[2]s", s.Name, rc))
 			}
 		}
 	}
 
 	if rc, ok := stdoutProps["systemctl_restart_rc"]; ok && rc != "0" {
-		return ErrServiceOperation.Raise(fmt.Errorf("systemctl restart '%[1]s.service' returned unexpected exit code %[2]s", s.Name, rc))
+		return errors.Join(ErrServiceOperation, fmt.Errorf("systemctl restart '%[1]s.service' returned unexpected exit code %[2]s", s.Name, rc))
 	}
 
 	if rc, ok := stdoutProps["systemctl_reload_rc"]; ok && rc != "0" {
-		return ErrServiceOperation.Raise(fmt.Errorf("systemctl reload '%[1]s.service' returned unexpected exit code %[2]s", s.Name, rc))
+		return errors.Join(ErrServiceOperation, fmt.Errorf("systemctl reload '%[1]s.service' returned unexpected exit code %[2]s", s.Name, rc))
 	}
 
 	return nil

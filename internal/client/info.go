@@ -2,7 +2,7 @@ package client
 
 import (
 	"context"
-	"github.com/neuspaces/terraform-provider-system/internal/lib/typederror"
+	"errors"
 	"github.com/neuspaces/terraform-provider-system/internal/system"
 )
 
@@ -18,9 +18,9 @@ func NewInfoClient(s system.System) InfoClient {
 }
 
 var (
-	ErrInfo = typederror.NewRoot("info resource")
+	ErrInfo = errors.New("info resource")
 
-	ErrInfoUnexpected = typederror.New("unexpected error", ErrInfo)
+	ErrInfoUnexpected = errors.Join(ErrInfo, errors.New("unexpected error"))
 )
 
 type infoClient struct {

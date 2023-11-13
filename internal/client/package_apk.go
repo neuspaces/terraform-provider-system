@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/neuspaces/terraform-provider-system/internal/lib/typederror"
 	"github.com/neuspaces/terraform-provider-system/internal/system"
 	"regexp"
 	"sort"
@@ -15,13 +14,13 @@ import (
 const ApkPackageManager PackageManager = "apk"
 
 var (
-	ErrApkPackage = typederror.NewRoot("apk package resource")
+	ErrApkPackage = errors.New("apk package resource")
 
-	ErrApkPackageManagerNotAvailable = typederror.New("apk not available", ErrApkPackage)
+	ErrApkPackageManagerNotAvailable = errors.Join(ErrApkPackage, errors.New("apk not available"))
 
-	ErrApkPackageManager = typederror.New("apk error", ErrApkPackage)
+	ErrApkPackageManager = errors.Join(ErrApkPackage, errors.New("apk error"))
 
-	ErrApkPackageUnexpected = typederror.New("unexpected error", ErrApkPackage)
+	ErrApkPackageUnexpected = errors.Join(ErrApkPackage, errors.New("unexpected error"))
 )
 
 var (
@@ -51,7 +50,7 @@ func (c *apkPackageClient) Get(ctx context.Context) (Packages, error) {
 	cmd := NewCommand(`_do() { which apk >/dev/null 2>&1; which_apk_rc=$?; if [ $which_apk_rc -eq 0 ]; then apk -v version; else echo "which_apk_rc=${which_apk_rc}"; fi }; _do;`)
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return nil, ErrApkPackage.Raise(err)
+		return nil, errors.Join(ErrApkPackage, err)
 	}
 
 	if strings.HasPrefix(res.StdoutString(), "which_apk_rc=") && res.StdoutString() != "which_apk_rc=0" {
@@ -65,7 +64,7 @@ func (c *apkPackageClient) Get(ctx context.Context) (Packages, error) {
 	// Parse output of from apk version
 	apkVersionPackages, err := convertApkVersionToPackages(res.Stdout)
 	if err != nil {
-		return nil, ErrApkPackage.Raise(err)
+		return nil, errors.Join(ErrApkPackage, err)
 	}
 	apkVersionPackageMap := apkVersionPackages.ToMap()
 
@@ -74,13 +73,13 @@ func (c *apkPackageClient) Get(ctx context.Context) (Packages, error) {
 	// - only packages which are in /etc/apk/world are returned by the client
 	apkWorld, err := getApkWorld(ctx, c.s)
 	if err != nil {
-		return nil, ErrApkPackage.Raise(err)
+		return nil, errors.Join(ErrApkPackage, err)
 	}
 
 	// Get package list from /etc/apk/world
 	apkWorldPackages, err := convertApkWorldToPackages(apkWorld)
 	if err != nil {
-		return nil, ErrApkPackage.Raise(err)
+		return nil, errors.Join(ErrApkPackage, err)
 	}
 
 	// Construct result
@@ -115,13 +114,13 @@ func (c *apkPackageClient) Apply(ctx context.Context, pkgs Packages) error {
 	// Get /etc/apk/world
 	apkWorld, err := getApkWorld(ctx, c.s)
 	if err != nil {
-		return ErrApkPackage.Raise(err)
+		return errors.Join(ErrApkPackage, err)
 	}
 
 	// Get package list from /etc/apk/world
 	apkWorldPackages, err := convertApkWorldToPackages(apkWorld)
 	if err != nil {
-		return ErrApkPackage.Raise(err)
+		return errors.Join(ErrApkPackage, err)
 	}
 
 	// Construct package map from /etc/apk/world
@@ -160,10 +159,10 @@ func (c *apkPackageClient) Apply(ctx context.Context, pkgs Packages) error {
 
 	apkUpgradeRes, err := ExecuteCommand(ctx, c.s, apkUpgradeCmd)
 	if err != nil {
-		return ErrApkPackage.Raise(err)
+		return errors.Join(ErrApkPackage, err)
 	}
 	if apkUpgradeRes.ExitCode != 0 {
-		return ErrApkPackageManager.Raise(errors.New(string(apkUpgradeRes.Stderr)))
+		return errors.Join(ErrApkPackageManager, errors.New(string(apkUpgradeRes.Stderr)))
 	}
 
 	return nil
@@ -173,7 +172,7 @@ func getApkWorld(ctx context.Context, s system.System) ([]byte, error) {
 	// Get /etc/apk/world
 	apkWorldCatRes, err := ExecuteCommand(ctx, s, &CatCommand{Path: "/etc/apk/world"})
 	if err != nil {
-		return nil, ErrApkPackage.Raise(err)
+		return nil, errors.Join(ErrApkPackage, err)
 	}
 	if apkWorldCatRes.ExitCode != 0 {
 		return nil, ErrApkPackageUnexpected

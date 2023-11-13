@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/neuspaces/terraform-provider-system/internal/extlib/to"
-	"github.com/neuspaces/terraform-provider-system/internal/lib/typederror"
 	"github.com/neuspaces/terraform-provider-system/internal/system"
 	"strconv"
 	"strings"
@@ -35,17 +34,17 @@ func NewUserClient(s system.System) UserClient {
 }
 
 var (
-	ErrUser = typederror.NewRoot("user resource")
+	ErrUser = errors.New("user resource")
 
-	ErrUserNotFound = typederror.New("user not found", ErrUser)
+	ErrUserNotFound = errors.Join(ErrUser, errors.New("user not found"))
 
-	ErrUserNameExists = typederror.New("user name exists", ErrUser)
+	ErrUserNameExists = errors.Join(ErrUser, errors.New("user name exists"))
 
-	ErrUserUidExists = typederror.New("user uid exists", ErrUser)
+	ErrUserUidExists = errors.Join(ErrUser, errors.New("user uid exists"))
 
-	ErrUserGroupNotFound = typederror.New("primary group not found", ErrUser)
+	ErrUserGroupNotFound = errors.Join(ErrUser, errors.New("primary group not found"))
 
-	ErrUserUnexpected = typederror.New("unexpected error", ErrUser)
+	ErrUserUnexpected = errors.Join(ErrUser, errors.New("unexpected error"))
 )
 
 const (
@@ -68,7 +67,7 @@ func (c *userClient) Get(ctx context.Context, uid int) (*User, error) {
 	cmd := NewCommand(fmt.Sprintf(`getent passwd %[1]d`, uid))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return nil, ErrUserUnexpected.Raise(err)
+		return nil, errors.Join(ErrUserUnexpected, err)
 	}
 
 	if res.ExitCode == codeUserNotFound {
@@ -88,7 +87,7 @@ func (c *userClient) Get(ctx context.Context, uid int) (*User, error) {
 	groupCmd := NewCommand(fmt.Sprintf(`getent group %[1]d`, parsedUser.Gid))
 	resGroup, err := ExecuteCommand(ctx, c.s, groupCmd)
 	if err != nil {
-		return nil, ErrUserUnexpected.Raise(err)
+		return nil, errors.Join(ErrUserUnexpected, err)
 	}
 
 	if resGroup.ExitCode == codeGroupNotFound {
@@ -154,7 +153,7 @@ func (c *userClient) Create(ctx context.Context, u User) (int, error) {
 	cmd := NewCommand(fmt.Sprintf(`useradd %[1]s && getent passwd %[2]s`, strings.Join(args, " "), u.Name))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return -1, ErrUserUnexpected.Raise(err)
+		return -1, errors.Join(ErrUserUnexpected, err)
 	}
 
 	switch res.ExitCode {
@@ -183,7 +182,7 @@ func (c *userClient) Create(ctx context.Context, u User) (int, error) {
 
 func (c *userClient) Update(ctx context.Context, u User) error {
 	if u.Uid == nil {
-		return ErrUserUnexpected.Raise(errors.New("update requires uid"))
+		return errors.Join(ErrUserUnexpected, errors.New("update requires uid"))
 	}
 
 	var args []string
@@ -221,7 +220,7 @@ func (c *userClient) Update(ctx context.Context, u User) error {
 	cmd := NewCommand(fmt.Sprintf(`_do() { uid=$1; user=$(getent passwd $uid | cut -d: -f1); [ ! -z "${user}" ] || return %[2]d; %[3]s; return $?; }; _do '%[1]d';`, to.Int(u.Uid), codeUserNotFound, usermodCmd))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return ErrUserUnexpected.Raise(err)
+		return errors.Join(ErrUserUnexpected, err)
 	}
 
 	switch res.ExitCode {
@@ -246,7 +245,7 @@ func (c *userClient) Delete(ctx context.Context, uid int) error {
 	cmd := NewCommand(fmt.Sprintf(`_do() { uid=$1; user=$(getent passwd $uid | cut -d: -f1); [ ! -z "${user}" ] || return %[2]d; userdel "${user}"; return $?; }; _do '%[1]d';`, uid, codeUserNotFound))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return ErrUserUnexpected.Raise(err)
+		return errors.Join(ErrUserUnexpected, err)
 	}
 
 	// https://github.com/shadow-maint/shadow/blob/dc9fc048de56aa7b6eaf80b1c068a8b5d59b1bf0/src/userdel.c#L77
@@ -258,7 +257,7 @@ func (c *userClient) Delete(ctx context.Context, uid int) error {
 		// Not interpreted as error because this is the desired state
 		break
 	default:
-		return ErrUser.Raise(fmt.Errorf("failed to delete user with uid %d", uid))
+		return errors.Join(ErrUser, fmt.Errorf("failed to delete user with uid %d", uid))
 	}
 
 	return nil

@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/neuspaces/terraform-provider-system/internal/client/openrc"
@@ -43,7 +44,7 @@ func (c *openrcServiceClient) Get(ctx context.Context, args ServiceGetArgs) (*Se
 	cmd := NewCommand(fmt.Sprintf(`_do() { rc-service -q -e '%[1]s' || return %[3]d; [ -d '/etc/runlevels/%[2]s' ] || return %[4]d; { rc-service -q -C '%[1]s' status; echo "status:$?"; }; { [ ! -L '/etc/runlevels/%[2]s/%[1]s' ]; echo "enabled:$?"; }; }; _do;`, args.Name, args.Runlevel, codeOpenrcServiceNotFound, codeOpenrcRunlevelNotFound))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return nil, ErrService.Raise(err)
+		return nil, errors.Join(ErrService, err)
 	}
 
 	switch res.ExitCode {
@@ -174,23 +175,23 @@ func (c *openrcServiceClient) Apply(ctx context.Context, s Service, opts ...Serv
 	// Parse output properties
 	stdoutProps, err := godotenv.Parse(bytes.NewReader(res.Stdout))
 	if err != nil {
-		return ErrServiceUnexpected.Raise(err)
+		return errors.Join(ErrServiceUnexpected, err)
 	}
 
 	if rc, ok := stdoutProps["rcservice_start_rc"]; ok && rc != "0" {
-		return ErrServiceOperation.Raise(fmt.Errorf("rc-service -q -C '%[1]s' start' returned unexpected exit code %[2]s", s.Name, rc))
+		return errors.Join(ErrServiceOperation, fmt.Errorf("rc-service -q -C '%[1]s' start' returned unexpected exit code %[2]s", s.Name, rc))
 	}
 
 	if rc, ok := stdoutProps["rcservice_stop_rc"]; ok && rc != "0" {
-		return ErrServiceOperation.Raise(fmt.Errorf("rc-service -q -C '%[1]s' stop' returned unexpected exit code %[2]s", s.Name, rc))
+		return errors.Join(ErrServiceOperation, fmt.Errorf("rc-service -q -C '%[1]s' stop' returned unexpected exit code %[2]s", s.Name, rc))
 	}
 
 	if rc, ok := stdoutProps["rcservice_restart_rc"]; ok && rc != "0" {
-		return ErrServiceOperation.Raise(fmt.Errorf("rc-service -q -C '%[1]s' restart' returned unexpected exit code %[2]s", s.Name, rc))
+		return errors.Join(ErrServiceOperation, fmt.Errorf("rc-service -q -C '%[1]s' restart' returned unexpected exit code %[2]s", s.Name, rc))
 	}
 
 	if rc, ok := stdoutProps["rcservice_reload_rc"]; ok && rc != "0" {
-		return ErrServiceOperation.Raise(fmt.Errorf("rc-service -q -C '%[1]s' reload' returned unexpected exit code %[2]s", s.Name, rc))
+		return errors.Join(ErrServiceOperation, fmt.Errorf("rc-service -q -C '%[1]s' reload' returned unexpected exit code %[2]s", s.Name, rc))
 	}
 
 	return nil

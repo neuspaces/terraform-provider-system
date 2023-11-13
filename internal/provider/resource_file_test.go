@@ -647,7 +647,7 @@ func TestAccFile_fail_existing(t *testing.T) {
 						testAccFileBlock("test", testRunFilePath(target, testConfig.fileName)),
 						testAccFileBlock("duplicate", testRunFilePath(target, testConfig.fileName)),
 					)),
-					ExpectError: regexp.MustCompile(`Error: file resource: file exists`),
+					ExpectError: regexp.MustCompile(`file resource\s+file exists`),
 				},
 			},
 		})

@@ -2,9 +2,9 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/neuspaces/terraform-provider-system/internal/lib/stat"
-	"github.com/neuspaces/terraform-provider-system/internal/lib/typederror"
 	"github.com/neuspaces/terraform-provider-system/internal/system"
 	"strconv"
 )
@@ -43,13 +43,13 @@ func NewLinkClient(s system.System) LinkClient {
 }
 
 var (
-	ErrLink = typederror.NewRoot("link resource")
+	ErrLink = errors.New("link resource")
 
-	ErrLinkExists = typederror.New("link exists", ErrLink)
+	ErrLinkExists = errors.Join(ErrLink, errors.New("link exists"))
 
-	ErrLinkNotFound = typederror.New("link not found", ErrLink)
+	ErrLinkNotFound = errors.Join(ErrLink, errors.New("link not found"))
 
-	ErrLinkUnexpected = typederror.New("unexpected error", ErrLink)
+	ErrLinkUnexpected = errors.Join(ErrLink, errors.New("unexpected error"))
 )
 
 const (
@@ -68,7 +68,7 @@ func (c *linkClient) Get(ctx context.Context, path string) (*Link, error) {
 	cmd := NewCommand(fmt.Sprintf(`_do() { path=$1; [ -L "${path}" ] || return %[2]d; stat -c '%[3]s' "${path}" || return 1; }; _do '%[1]s';`, path, codeLinkNotFound, stat.FormatJsonGnu))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return nil, ErrLink.Raise(err)
+		return nil, errors.Join(ErrLink, err)
 	}
 
 	switch res.ExitCode {
@@ -82,7 +82,7 @@ func (c *linkClient) Get(ctx context.Context, path string) (*Link, error) {
 
 	parsedStat, err := stat.ParseJsonFormat(res.Stdout)
 	if err != nil {
-		return nil, ErrLink.Raise(err)
+		return nil, errors.Join(ErrLink, err)
 	}
 
 	link := newLinkFromStat(parsedStat)
@@ -112,7 +112,7 @@ func (c *linkClient) Create(ctx context.Context, l Link) error {
 	cmd := NewCommand(fmt.Sprintf(`_do() { path=$1; [ ! -e "${path}" ] || return %[2]d; { %[3]s; } || return 1; }; _do '%[1]s';`, l.Path, codeLinkPathExists, CompositeCommand(createCmds).Command()))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return ErrLink.Raise(err)
+		return errors.Join(ErrLink, err)
 	}
 
 	switch res.ExitCode {
@@ -122,7 +122,7 @@ func (c *linkClient) Create(ctx context.Context, l Link) error {
 
 	err = res.Error()
 	if err != nil {
-		return ErrLink.Raise(err)
+		return errors.Join(ErrLink, err)
 	}
 
 	return nil
@@ -157,7 +157,7 @@ func (c *linkClient) Update(ctx context.Context, l Link) error {
 	cmd := NewCommand(fmt.Sprintf(`_do() { path=$1; [ -L "${path}" ] || return %[2]d; { %[3]s; } || return 1; }; _do '%[1]s';`, l.Path, codeLinkNotFound, CompositeCommand(updateCmds).Command()))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return ErrLink.Raise(err)
+		return errors.Join(ErrLink, err)
 	}
 
 	switch res.ExitCode {
@@ -167,7 +167,7 @@ func (c *linkClient) Update(ctx context.Context, l Link) error {
 
 	err = res.Error()
 	if err != nil {
-		return ErrLink.Raise(err)
+		return errors.Join(ErrLink, err)
 	}
 
 	return nil
@@ -177,7 +177,7 @@ func (c *linkClient) Delete(ctx context.Context, path string) error {
 	cmd := NewCommand(fmt.Sprintf(`_do() { path=$1; [ -L "${path}" ] || return %[2]d; rm -f "${path}" || return 1; }; _do '%[1]s';`, path, codeLinkNotFound))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return ErrLink.Raise(err)
+		return errors.Join(ErrLink, err)
 	}
 
 	switch res.ExitCode {
@@ -186,7 +186,7 @@ func (c *linkClient) Delete(ctx context.Context, path string) error {
 	}
 
 	if res.ExitCode != 0 {
-		return ErrFile.Raise(fmt.Errorf("failed to delete %q", path))
+		return errors.Join(ErrLink, fmt.Errorf("failed to delete %q", path))
 	}
 
 	return nil

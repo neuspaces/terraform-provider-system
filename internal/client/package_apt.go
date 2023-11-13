@@ -6,7 +6,6 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
-	"github.com/neuspaces/terraform-provider-system/internal/lib/typederror"
 	"github.com/neuspaces/terraform-provider-system/internal/system"
 	"io"
 	"sort"
@@ -16,13 +15,13 @@ import (
 const AptPackageManager PackageManager = "apt"
 
 var (
-	ErrAptPackage = typederror.NewRoot("apt package resource")
+	ErrAptPackage = errors.New("apt package resource")
 
-	ErrAptPackageManagerNotAvailable = typederror.New("apt not available", ErrAptPackage)
+	ErrAptPackageManagerNotAvailable = errors.Join(ErrAptPackage, errors.New("apt not available"))
 
-	ErrAptPackageManager = typederror.New("apt error", ErrAptPackage)
+	ErrAptPackageManager = errors.Join(ErrAptPackage, errors.New("apt error"))
 
-	ErrAptPackageUnexpected = typederror.New("unexpected error", ErrAptPackage)
+	ErrAptPackageUnexpected = errors.Join(ErrAptPackage, errors.New("unexpected error"))
 )
 
 func NewAptPackageClient(s system.System) PackageClient {
@@ -40,7 +39,7 @@ func (c *aptPackageClient) Get(ctx context.Context) (Packages, error) {
 	cmd := NewCommand(`_do() { which dpkg-query >/dev/null 2>&1; which_dpkg_query_rc=$?; if [ $which_dpkg_query_rc -eq 0 ]; then dpkg-query --show --no-pager --showformat='"${Package}","${Version}","${db:Status-Abbrev}","${Status}"\n'; else echo "which_dpkg_query_rc=${which_dpkg_query_rc}"; fi }; _do;`)
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return nil, ErrAptPackage.Raise(err)
+		return nil, errors.Join(ErrAptPackage, err)
 	}
 
 	if strings.HasPrefix(res.StdoutString(), "which_dpkg_query_rc=") && res.StdoutString() != "which_dpkg_query_rc=0" {
@@ -64,7 +63,7 @@ func (c *aptPackageClient) Get(ctx context.Context) (Packages, error) {
 			break
 		}
 		if err != nil {
-			return nil, ErrAptPackage.Raise(err)
+			return nil, errors.Join(ErrAptPackage, err)
 		}
 		if len(dpkgQueryPackage) != 4 {
 			return nil, ErrAptPackageUnexpected
@@ -130,15 +129,15 @@ func (c *aptPackageClient) Apply(ctx context.Context, pkgs Packages) error {
 	cmd := NewCommand(fmt.Sprintf(`_do() { export DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical LANGUAGE=C LANG=C LC_ALL=C LC_MESSAGES=C LC_CTYPE=C; apt-get update >/dev/null 2>&1; apt_update_rc=$?; if [ $apt_update_rc -ne 0 ]; then echo "apt_update_rc=${apt_update_rc}"; fi; apt-get install --no-install-recommends %[1]s -y -q; }; _do;`, strings.Join(aptInstallPkgs, " ")))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return ErrAptPackageUnexpected.Raise(err)
+		return errors.Join(ErrAptPackageManager, err)
 	}
 
 	if strings.HasPrefix(res.StdoutString(), "apt_update_rc=") && res.StdoutString() != "which_dpkg_query_rc=0" {
-		return ErrAptPackageManager.Raise(errors.New(res.StderrString()))
+		return errors.Join(ErrAptPackageManager, errors.New(res.StderrString()))
 	}
 
 	if res.ExitCode != 0 {
-		return ErrAptPackageManager.Raise(errors.New(res.StderrString()))
+		return errors.Join(ErrAptPackageManager, errors.New(res.StderrString()))
 	}
 
 	return nil

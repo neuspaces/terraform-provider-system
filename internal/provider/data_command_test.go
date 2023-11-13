@@ -148,7 +148,7 @@ func TestAccDataCommand(t *testing.T) {
 		//	`),
 		//
 		//	ExpectErr:      true,
-		//	ExpectErrRegex: `Error: stdout or stderr exceeded limit`,
+		//	ExpectErrRegex: `stdout or stderr exceeded limit`,
 		//},
 		//{
 		//	Desc: "exceeding stderr limit",
@@ -161,7 +161,7 @@ func TestAccDataCommand(t *testing.T) {
 		//	`),
 		//
 		//	ExpectErr:      true,
-		//	ExpectErrRegex: `Error: stdout or stderr exceeded limit`,
+		//	ExpectErrRegex: `stdout or stderr exceeded limit`,
 		//},
 	}
 

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"regexp"
 	"strings"
 )
@@ -31,7 +32,7 @@ func (c *infoClient) GetRelease(ctx context.Context) (*ReleaseInfo, error) {
 	catCmd := &CatCommand{Path: "/etc/os-release"}
 	resOsRelease, err := ExecuteCommand(ctx, c.s, catCmd)
 	if err != nil {
-		return nil, ErrInfo.Raise(err)
+		return nil, errors.Join(ErrInfo, err)
 	}
 
 	if resOsRelease.ExitCode != 0 || len(resOsRelease.Stdout) == 0 {

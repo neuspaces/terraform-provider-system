@@ -2,8 +2,8 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/neuspaces/terraform-provider-system/internal/lib/typederror"
 	"github.com/neuspaces/terraform-provider-system/internal/system"
 	"strconv"
 	"strings"
@@ -29,15 +29,15 @@ func NewGroupClient(s system.System) GroupClient {
 }
 
 var (
-	ErrGroup = typederror.NewRoot("group resource")
+	ErrGroup = errors.New("group resource")
 
-	ErrGroupNotFound = typederror.New("group not found", ErrGroup)
+	ErrGroupNotFound = errors.Join(ErrGroup, errors.New("group not found"))
 
-	ErrGroupNameExists = typederror.New("group name exists", ErrGroup)
+	ErrGroupNameExists = errors.Join(ErrGroup, errors.New("group name exists"))
 
-	ErrGroupGidExists = typederror.New("group gid exists", ErrGroup)
+	ErrGroupGidExists = errors.Join(ErrGroup, errors.New("group gid exists"))
 
-	ErrGroupUnexpected = typederror.New("unexpected error", ErrGroup)
+	ErrGroupUnexpected = errors.Join(ErrGroup, errors.New("unexpected error"))
 )
 
 const (
@@ -58,7 +58,7 @@ func (c *groupClient) Get(ctx context.Context, gid int) (*Group, error) {
 	cmd := NewCommand(fmt.Sprintf(`getent group %[1]d`, gid))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return nil, ErrGroup.Raise(err)
+		return nil, errors.Join(ErrGroup, err)
 	}
 
 	if res.ExitCode == codeGroupNotFound {
@@ -100,7 +100,7 @@ func (c *groupClient) Create(ctx context.Context, g Group) (int, error) {
 	cmd := NewCommand(fmt.Sprintf(`groupadd %[1]s && getent group %[2]s`, strings.Join(args, " "), g.Name))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return -1, ErrGroup.Raise(err)
+		return -1, errors.Join(ErrGroup, err)
 	}
 
 	switch res.ExitCode {
@@ -140,7 +140,7 @@ func (c *groupClient) Update(ctx context.Context, g Group) error {
 	cmd := NewCommand(fmt.Sprintf(`_do() { gid=$1; group=$(getent group $gid | cut -d: -f1); [ ! -z "${group}" ] || return %[2]d; %[3]s; return $?; }; _do '%[1]d';`, g.Gid, codeGroupNotFound, groupmodCmd))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return ErrGroup.Raise(err)
+		return errors.Join(ErrGroup, err)
 	}
 
 	switch res.ExitCode {
@@ -164,7 +164,7 @@ func (c *groupClient) Delete(ctx context.Context, gid int) error {
 	cmd := NewCommand(fmt.Sprintf(`_do() { gid=$1; group=$(getent group $gid | cut -d: -f1); [ ! -z "${group}" ] || return %[2]d; groupdel "${group}"; return $?; }; _do '%[1]d';`, gid, codeGroupNotFound))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return ErrGroup.Raise(err)
+		return errors.Join(ErrGroup, err)
 	}
 
 	// https://github.com/shadow-maint/shadow/blob/dc9fc048de56aa7b6eaf80b1c068a8b5d59b1bf0/src/groupdel.c#L77
@@ -176,7 +176,7 @@ func (c *groupClient) Delete(ctx context.Context, gid int) error {
 		// Not interpreted as error because this is the desired state
 		break
 	default:
-		return ErrGroup.Raise(fmt.Errorf("failed to delete group with gid %d", gid))
+		return errors.Join(ErrGroup, fmt.Errorf("failed to delete group with gid %d", gid))
 	}
 
 	return nil

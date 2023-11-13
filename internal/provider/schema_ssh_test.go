@@ -425,7 +425,7 @@ func TestAccProviderSudo(t *testing.T) {
 				tfbuild.AttributeBool(provider.SchemaAttrSudo, true),
 			)
 
-			testAccProviderConnectTestExpectError(t, providerConfig, regexp.MustCompile(regexp.QuoteMeta(`info resource: unexpected error`)))
+			testAccProviderConnectTestExpectError(t, providerConfig, regexp.MustCompile(`info resource\s+unexpected error`))
 		})
 	})
 }

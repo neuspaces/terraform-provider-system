@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"strconv"
 	"strings"
@@ -23,7 +24,7 @@ func (c *infoClient) GetIdentity(ctx context.Context) (*IdentityInfo, error) {
 
 	resId, err := ExecuteCommand(ctx, c.s, SimpleCommand(`id`))
 	if err != nil {
-		return nil, ErrInfo.Raise(err)
+		return nil, errors.Join(ErrInfo, err)
 	}
 
 	if resId.ExitCode != 0 || len(resId.Stdout) == 0 {

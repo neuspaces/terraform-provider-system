@@ -2,9 +2,9 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/neuspaces/terraform-provider-system/internal/lib/stat"
-	"github.com/neuspaces/terraform-provider-system/internal/lib/typederror"
 	"github.com/neuspaces/terraform-provider-system/internal/system"
 	"io/fs"
 	"strconv"
@@ -44,13 +44,13 @@ func NewFolderClient(s system.System) FolderClient {
 }
 
 var (
-	ErrFolder = typederror.NewRoot("folder resource")
+	ErrFolder = errors.New("folder resource")
 
-	ErrFolderPathExists = typederror.New("folder path exists", ErrFile)
+	ErrFolderPathExists = errors.Join(ErrFolder, errors.New("folder path exists"))
 
-	ErrFolderNotFound = typederror.New("folder not found", ErrFile)
+	ErrFolderNotFound = errors.Join(ErrFolder, errors.New("folder not found"))
 
-	ErrFolderUnexpected = typederror.New("unexpected error", ErrFile)
+	ErrFolderUnexpected = errors.Join(ErrFolder, errors.New("unexpected error"))
 )
 
 const (
@@ -69,7 +69,7 @@ func (c *folderClient) Get(ctx context.Context, path string) (*Folder, error) {
 	cmd := NewCommand(fmt.Sprintf(`_do() { path=$1; [ -d "${path}" ] || return %[2]d; stat -c '%[3]s' "${path}" || return 1; }; _do '%[1]s';`, path, codeFolderNotFound, stat.FormatJsonGnu))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return nil, ErrFolder.Raise(err)
+		return nil, errors.Join(ErrFolder, err)
 	}
 
 	switch res.ExitCode {
@@ -83,7 +83,7 @@ func (c *folderClient) Get(ctx context.Context, path string) (*Folder, error) {
 
 	parsedStat, err := stat.ParseJsonFormat(res.Stdout)
 	if err != nil {
-		return nil, ErrFolder.Raise(err)
+		return nil, errors.Join(ErrFolder, err)
 	}
 
 	folder := newFolderFromStat(parsedStat)
@@ -113,7 +113,7 @@ func (c *folderClient) Create(ctx context.Context, f Folder) error {
 	cmd := NewCommand(fmt.Sprintf(`_do() { path=$1; [ ! -e "${path}" ] || return %[2]d; { %[3]s; } || return 1; }; _do '%[1]s';`, f.Path, codeFolderPathExists, CompositeCommand(createCmds).Command()))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return ErrFolder.Raise(err)
+		return errors.Join(ErrFolder, err)
 	}
 
 	switch res.ExitCode {
@@ -123,7 +123,7 @@ func (c *folderClient) Create(ctx context.Context, f Folder) error {
 
 	err = res.Error()
 	if err != nil {
-		return ErrFolder.Raise(err)
+		return errors.Join(ErrFolder, err)
 	}
 
 	return nil
@@ -158,7 +158,7 @@ func (c *folderClient) Update(ctx context.Context, f Folder) error {
 	cmd := NewCommand(fmt.Sprintf(`_do() { path=$1; [ -d "${path}" ] || return %[2]d; { %[3]s; } || return 1; }; _do '%[1]s';`, f.Path, codeFolderNotFound, CompositeCommand(updateCmds).Command()))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return ErrFolder.Raise(err)
+		return errors.Join(ErrFolder, err)
 	}
 
 	switch res.ExitCode {
@@ -168,7 +168,7 @@ func (c *folderClient) Update(ctx context.Context, f Folder) error {
 
 	err = res.Error()
 	if err != nil {
-		return ErrFolder.Raise(err)
+		return errors.Join(ErrFolder, err)
 	}
 
 	return nil
@@ -178,7 +178,7 @@ func (c *folderClient) Delete(ctx context.Context, path string) error {
 	cmd := NewCommand(fmt.Sprintf(`_do() { path=$1; [ -d "${path}" ] || return %[2]d; rm -rf "${path}" || return 1; }; _do '%[1]s';`, path, codeFolderNotFound))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return ErrFolder.Raise(err)
+		return errors.Join(ErrFolder, err)
 	}
 
 	switch res.ExitCode {
@@ -187,7 +187,7 @@ func (c *folderClient) Delete(ctx context.Context, path string) error {
 	}
 
 	if res.ExitCode != 0 {
-		return ErrFolder.Raise(fmt.Errorf("failed to delete %q", path))
+		return errors.Join(ErrFolder, fmt.Errorf("failed to delete %q", path))
 	}
 
 	return nil

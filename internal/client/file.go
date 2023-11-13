@@ -6,9 +6,9 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/neuspaces/terraform-provider-system/internal/lib/stat"
-	"github.com/neuspaces/terraform-provider-system/internal/lib/typederror"
 	"github.com/neuspaces/terraform-provider-system/internal/system"
 	"io"
 	"io/fs"
@@ -74,13 +74,13 @@ func NewFileClient(s system.System, opts ...FileClientOpt) FileClient {
 }
 
 var (
-	ErrFile = typederror.NewRoot("file resource")
+	ErrFile = errors.New("file resource")
 
-	ErrFileExists = typederror.New("file exists", ErrFile)
+	ErrFileExists = errors.Join(ErrFile, errors.New("file exists"))
 
-	ErrFileNotFound = typederror.New("file not found", ErrFile)
+	ErrFileNotFound = errors.Join(ErrFile, errors.New("file not found"))
 
-	ErrFileUnexpected = typederror.New("unexpected error", ErrFile)
+	ErrFileUnexpected = errors.Join(ErrFile, errors.New("unexpected error"))
 )
 
 const (
@@ -102,7 +102,7 @@ func (c *fileClient) Get(ctx context.Context, path string) (*File, error) {
 	cmd := NewCommand(fmt.Sprintf(`_do() { path='%[1]s'; [ -f "${path}" ] || return %[2]d; { stat -c '%[3]s' "${path}" && md5sum "${path}"; } || return 1; }; _do;`, path, codeFileNotFound, stat.FormatJsonGnu))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return nil, ErrFileUnexpected.Raise(err)
+		return nil, errors.Join(ErrFileUnexpected, err)
 	}
 
 	switch res.ExitCode {
@@ -119,7 +119,7 @@ func (c *fileClient) Get(ctx context.Context, path string) (*File, error) {
 	statOut := []byte(stdoutLines[0])
 	parsedStat, err := stat.ParseJsonFormat(statOut)
 	if err != nil {
-		return nil, ErrFileUnexpected.Raise(err)
+		return nil, errors.Join(ErrFileUnexpected, err)
 	}
 
 	file := newFileFromStat(parsedStat)
@@ -132,7 +132,7 @@ func (c *fileClient) Get(ctx context.Context, path string) (*File, error) {
 	// Convert md5 sum from hex to base64 encoding
 	md5Hex, err := hex.DecodeString(md5Parts[0])
 	if err != nil {
-		return nil, ErrFileUnexpected.Raise(err)
+		return nil, errors.Join(ErrFileUnexpected, err)
 	}
 
 	file.Md5Sum = base64.StdEncoding.EncodeToString(md5Hex)
@@ -142,11 +142,11 @@ func (c *fileClient) Get(ctx context.Context, path string) (*File, error) {
 		catCmd := NewCommand(fmt.Sprintf(`cat '%s'`, path))
 		catRes, err := ExecuteCommand(ctx, c.s, catCmd)
 		if err != nil {
-			return nil, ErrFileUnexpected.Raise(err)
+			return nil, errors.Join(ErrFileUnexpected, err)
 		}
 
 		if err := catRes.Error(); err != nil {
-			return nil, ErrFileUnexpected.Raise(err)
+			return nil, errors.Join(ErrFileUnexpected, err)
 		}
 
 		file.Content = bytes.NewReader(catRes.Stdout)
@@ -176,7 +176,7 @@ func (c *fileClient) Create(ctx context.Context, f File) error {
 			pipeReader, pipeWriter := io.Pipe()
 			gzipWriter, err := gzip.NewWriterLevel(pipeWriter, gzip.BestCompression)
 			if err != nil {
-				return ErrFile.Raise(err)
+				return errors.Join(ErrFile, err)
 			}
 
 			go func() {
@@ -212,7 +212,7 @@ func (c *fileClient) Create(ctx context.Context, f File) error {
 	cmd := NewInputCommand(fmt.Sprintf(`_do() { path=$1; [ ! -e "${path}" ] || return %[2]d; { %[3]s; } || return 1; }; _do '%[1]s';`, f.Path, codeFilePathExists, CompositeCommand(createCmds).Command()), createCmdIn)
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return ErrFile.Raise(err)
+		return errors.Join(ErrFile, err)
 	}
 
 	switch res.ExitCode {
@@ -222,7 +222,7 @@ func (c *fileClient) Create(ctx context.Context, f File) error {
 
 	err = res.Error()
 	if err != nil {
-		return ErrFile.Raise(err)
+		return errors.Join(ErrFile, err)
 	}
 
 	return nil
@@ -249,7 +249,7 @@ func (c *fileClient) Update(ctx context.Context, f File) error {
 			pipeReader, pipeWriter := io.Pipe()
 			gzipWriter, err := gzip.NewWriterLevel(pipeWriter, gzip.BestCompression)
 			if err != nil {
-				return ErrFile.Raise(err)
+				return errors.Join(ErrFile, err)
 			}
 
 			go func() {
@@ -287,7 +287,7 @@ func (c *fileClient) Update(ctx context.Context, f File) error {
 	cmd := NewInputCommand(fmt.Sprintf(`_do() { path=$1; [ -f "${path}" ] || return %[2]d; { %[3]s; } || return 1; }; _do '%[1]s';`, f.Path, codeFileNotFound, CompositeCommand(updateCmds).Command()), updateCmdIn)
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return ErrFile.Raise(err)
+		return errors.Join(ErrFile, err)
 	}
 
 	switch res.ExitCode {
@@ -297,7 +297,7 @@ func (c *fileClient) Update(ctx context.Context, f File) error {
 
 	err = res.Error()
 	if err != nil {
-		return ErrFile.Raise(err)
+		return errors.Join(ErrFile, err)
 	}
 
 	return nil
@@ -307,7 +307,7 @@ func (c *fileClient) Delete(ctx context.Context, path string) error {
 	cmd := NewCommand(fmt.Sprintf(`_do() { path=$1; [ -f "${path}" ] || return %[2]d; rm -f "${path}" || return 1; }; _do '%[1]s';`, path, codeFileNotFound))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
-		return ErrFile.Raise(err)
+		return errors.Join(ErrFile, err)
 	}
 
 	switch res.ExitCode {
@@ -316,7 +316,7 @@ func (c *fileClient) Delete(ctx context.Context, path string) error {
 	}
 
 	if res.ExitCode != 0 {
-		return ErrFile.Raise(fmt.Errorf("failed to delete %q", path))
+		return errors.Join(ErrFile, fmt.Errorf("failed to delete %q", path))
 	}
 
 	return nil
