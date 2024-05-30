@@ -108,9 +108,9 @@ targets:
   fedora:
     os:
       id: fedora
-      name: Fedora Linux 35 (Container Image)
+      name: Fedora Linux 40 (Container Image)
       vendor: fedora
-      version: 35
+      version: 40
       # release: 
 
     configs:
