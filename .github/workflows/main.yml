@@ -39,25 +39,11 @@ jobs:
         run: |
           go mod download
 
-      -
-        name: Setup Terraform executable cache
-        uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # v3.2.2
+      - 
+        name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3.1.1
         with:
-          path: ~/terraform/bin
-          key: ${{ runner.os }}-terraform-bin-1.6.3
-
-      -
-        name: Download Terraform CLI
-        id: terraform_cli
-        run: |
-          mkdir -p "$HOME/terraform/bin"
-          if [ ! -f "$HOME/terraform/bin/terraform" ]; then
-            wget -O '${{ runner.temp }}/terraform_1.6.3_linux_amd64.zip' 'https://releases.hashicorp.com/terraform/1.6.3/terraform_1.6.3_linux_amd64.zip'
-            unzip '${{ runner.temp }}/terraform_1.6.3_linux_amd64.zip' -d "$HOME/terraform/bin"
-          fi
-          chmod +x "$HOME/terraform/bin/terraform"
-          $HOME/terraform/bin/terraform version
-          echo "::set-output name=path::$HOME/terraform/bin/terraform"
+          terraform_version: "1.6.3"
 
       - 
         name: Verify generated files
