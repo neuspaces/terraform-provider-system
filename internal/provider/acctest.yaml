@@ -55,10 +55,10 @@ targets:
   debian:
     os:
       id: debian
-      name: Debian GNU/Linux 11 (bullseye)
+      name: Debian GNU/Linux 12 (bookworm)
       vendor: debian
-      version: 11
-      release: 11.2
+      version: 12
+      release: 12.5
 
     configs:
       base: &debian-base

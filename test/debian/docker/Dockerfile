@@ -1,6 +1,6 @@
 # Debian
 # https://hub.docker.com/_/debian
-ARG DEBIAN_VERSION=bullseye-20220125-slim
+ARG DEBIAN_VERSION=bookworm-20240513-slim
 FROM debian:${DEBIAN_VERSION}
 
 # Switch to noninteractive
