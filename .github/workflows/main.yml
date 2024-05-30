@@ -87,7 +87,7 @@ jobs:
           - 
             name: debian
             image: ghcr.io/neuspaces/terraform-provider-system/debian-acctest
-            image_tag: a7a9a60
+            image_tag: 560b08f
             test_path: test/debian
             host_port: 11022
             private_key_file: root-ed25519
