@@ -216,7 +216,7 @@ jobs:
     name: Release
     
     # only on push events and if commit has version tag
-    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+    if: ${{ github.repository == 'neuspaces/terraform-provider-system' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
 
     needs: acctest
     runs-on: ubuntu-22.04
