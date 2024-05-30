@@ -154,25 +154,11 @@ jobs:
           ${{ matrix.target.extra_run_args }}
           ${{ matrix.target.image }}:${{ matrix.target.image_tag }}
 
-      -
-        name: Setup Terraform executable cache
-        uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # v3.2.2
+      - 
+        name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3.1.1
         with:
-          path: ~/terraform/bin
-          key: ${{ runner.os }}-terraform-bin-${{ matrix.terraform_version }}
-
-      -
-        name: Download Terraform ${{ matrix.terraform_version }} CLI
-        id: terraform_cli
-        run: |
-          mkdir -p "$HOME/terraform/bin"
-          if [ ! -f "$HOME/terraform/bin/terraform" ]; then
-            wget -O '${{ runner.temp }}/terraform_${{ matrix.terraform_version }}_linux_amd64.zip' 'https://releases.hashicorp.com/terraform/${{ matrix.terraform_version }}/terraform_${{ matrix.terraform_version }}_linux_amd64.zip'
-            unzip '${{ runner.temp }}/terraform_${{ matrix.terraform_version }}_linux_amd64.zip' -d "$HOME/terraform/bin"
-          fi
-          chmod +x "$HOME/terraform/bin/terraform"
-          $HOME/terraform/bin/terraform version
-          echo "::set-output name=path::$HOME/terraform/bin/terraform"
+          terraform_version: ${{ matrix.terraform_version }}
 
       -
         name: Run acceptance tests
