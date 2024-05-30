@@ -118,7 +118,7 @@ jobs:
         name: Context variables
         id: vars
         run: |
-          echo "::set-output name=os_container_name::terraform-provider-system-${{ matrix.target.name }}-${{ github.run_id }}"
+          echo "os_container_name=terraform-provider-system-${{ matrix.target.name }}-${{ github.run_id }}" >> $GITHUB_OUTPUT
       
       -
         name: Set up Go
