@@ -17,7 +17,10 @@ type EnvConfig struct {
 // loadEnvConfig returns an EnvConfig which has been obtained from environment variables using an envconfig.Lookuper
 func loadEnvConfig(ctx context.Context, lookuper envconfig.Lookuper) (*EnvConfig, error) {
 	var p EnvConfig
-	err := envconfig.ProcessWith(ctx, &p, lookuper)
+	err := envconfig.ProcessWith(ctx, &envconfig.Config{
+		Target:   &p,
+		Lookuper: lookuper,
+	})
 	if err != nil {
 		return nil, err
 	}
