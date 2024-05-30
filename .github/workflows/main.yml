@@ -9,6 +9,7 @@ on:
       - 'test/fedora/**'
       - 'README.md'
   pull_request:
+  workflow_dispatch:
     
 jobs:
   build:
