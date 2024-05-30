@@ -95,7 +95,7 @@ jobs:
           - 
             name: fedora
             image: ghcr.io/neuspaces/terraform-provider-system/fedora-acctest
-            image_tag: a7a9a60
+            image_tag: e3d717a
             test_path: test/fedora
             host_port: 12022
             private_key_file: root-ed25519
