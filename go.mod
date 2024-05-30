@@ -1,6 +1,6 @@
 module github.com/neuspaces/terraform-provider-system
 
-go 1.20
+go 1.22
 
 require (
 	github.com/alessio/shellescape v1.4.1
