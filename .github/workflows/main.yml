@@ -212,7 +212,7 @@ jobs:
       -
         name: Import GPG private key
         id: import_gpg_private_key
-        uses: crazy-max/ghaction-import-gpg@v4.4.0
+        uses: neuspaces/gpg-key-action@v6.1.0
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
