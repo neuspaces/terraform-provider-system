@@ -45,6 +45,7 @@ func providerResources() map[string]*schema.Resource {
 		resourceGroupName:          resourceGroup(),
 		resourceServiceOpenrcName:  resourceServiceOpenrc(),
 		resourceServiceSystemdName: resourceServiceSystemd(),
+		resourceSystemdUnitName:    resourceSystemdUnit(),
 		resourcePackagesApkName:    resourcePackagesApk(),
 		resourcePackagesAptName:    resourcePackagesApt(),
 	}
