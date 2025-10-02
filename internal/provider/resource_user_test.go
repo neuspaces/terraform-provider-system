@@ -232,6 +232,76 @@ func TestAccUser_system_create(t *testing.T) {
 	})
 }
 
+func TestAccUser_createHome(t *testing.T) {
+	testConfig := newTestUserConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: provider.TestLogString(t, tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccGroupBlock("test", testRunGroupName(testConfig.userName, "a")),
+						testAccUserBlock("test", testRunUserName(testConfig.userName, "a"),
+							tfbuild.AttributeTraversal("group", tfbuild.TraversalResourceAttribute("system_group", "test", "name")),
+							tfbuild.AttributeBool("create_home", true),
+						),
+					))),
+					Check: resource.ComposeTestCheckFunc(
+						provider.TestLogResourceAttr(t, "system_user.test"),
+						resource.TestCheckResourceAttrSet("system_user.test", "id"),
+						resource.TestCheckResourceAttr("system_user.test", "name", testRunUserName(testConfig.userName, "a")),
+						resource.TestCheckResourceAttrSet("system_user.test", "uid"),
+						resource.TestCheckResourceAttr("system_user.test", "group", testRunGroupName(testConfig.userName, "a")),
+						resource.TestCheckResourceAttrSet("system_user.test", "gid"),
+						resource.TestCheckResourceAttr("system_user.test", "create_home", "true"),
+						resource.TestCheckResourceAttrSet("system_user.test", "home"),
+						resource.TestCheckResourceAttrSet("system_user.test", "shell"),
+					),
+				},
+			},
+		})
+	})
+}
+
+func TestAccUser_noCreateHome(t *testing.T) {
+	testConfig := newTestUserConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: provider.TestLogString(t, tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccGroupBlock("test", testRunGroupName(testConfig.userName, "a")),
+						testAccUserBlock("test", testRunUserName(testConfig.userName, "a"),
+							tfbuild.AttributeTraversal("group", tfbuild.TraversalResourceAttribute("system_group", "test", "name")),
+							tfbuild.AttributeBool("create_home", false),
+						),
+					))),
+					Check: resource.ComposeTestCheckFunc(
+						provider.TestLogResourceAttr(t, "system_user.test"),
+						resource.TestCheckResourceAttrSet("system_user.test", "id"),
+						resource.TestCheckResourceAttr("system_user.test", "name", testRunUserName(testConfig.userName, "a")),
+						resource.TestCheckResourceAttrSet("system_user.test", "uid"),
+						resource.TestCheckResourceAttr("system_user.test", "group", testRunGroupName(testConfig.userName, "a")),
+						resource.TestCheckResourceAttrSet("system_user.test", "gid"),
+						resource.TestCheckResourceAttr("system_user.test", "create_home", "false"),
+						resource.TestCheckResourceAttrSet("system_user.test", "home"),
+						resource.TestCheckResourceAttrSet("system_user.test", "shell"),
+					),
+				},
+			},
+		})
+	})
+}
+
 func testRunUserName(userName string, extensions ...string) string {
 	return "test" + acctest.Current().Id + userName + strings.Join(extensions, "")
 }
