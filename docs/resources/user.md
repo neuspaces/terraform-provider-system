@@ -75,6 +75,7 @@ This section describes general notes for using the `system_user` resource.
 
 ### Optional
 
+- `create_home` (Boolean) Create home directory for the user. Only used during user creation.
 - `gid` (Number) Gid of the primary group of the user. Group must exist. Either `gid` or `group` must be provided.
 - `group` (String) Name of the primary group of the user. Group must exist. Mutually exclusive with `gid`.
 - `home` (String) Path to the home folder of the user. The folder is expected to exist and will not be created.

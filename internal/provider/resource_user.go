@@ -3,25 +3,27 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strconv"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/neuspaces/terraform-provider-system/internal/client"
 	"github.com/neuspaces/terraform-provider-system/internal/extlib/to"
 	"github.com/neuspaces/terraform-provider-system/internal/validate"
-	"strconv"
 )
 
 const resourceUserName = "system_user"
 
 const (
-	resourceUserAttrId     = "id"
-	resourceUserAttrName   = "name"
-	resourceUserAttrUid    = "uid"
-	resourceUserAttrGroup  = "group"
-	resourceUserAttrGid    = "gid"
-	resourceUserAttrSystem = "system"
-	resourceUserAttrHome   = "home"
-	resourceUserAttrShell  = "shell"
+	resourceUserAttrId         = "id"
+	resourceUserAttrName       = "name"
+	resourceUserAttrUid        = "uid"
+	resourceUserAttrGroup      = "group"
+	resourceUserAttrGid        = "gid"
+	resourceUserAttrSystem     = "system"
+	resourceUserAttrHome       = "home"
+	resourceUserAttrCreateHome = "create_home"
+	resourceUserAttrShell      = "shell"
 )
 
 func resourceUser() *schema.Resource {
@@ -77,6 +79,12 @@ func resourceUser() *schema.Resource {
 				Computed:    true,
 				ForceNew:    true,
 			},
+			resourceUserAttrCreateHome: {
+				Description: "Create home directory for the user. Only used during user creation.",
+				Type:        schema.TypeBool,
+				Optional:    true,
+				ForceNew:    true,
+			},
 			resourceUserAttrHome: {
 				Description:      "Path to the home folder of the user. The folder is expected to exist and will not be created.",
 				Type:             schema.TypeString,
@@ -124,6 +132,10 @@ func resourceUserGetResourceData(d *schema.ResourceData) (*client.User, diag.Dia
 
 	if d.HasChange(resourceUserAttrShell) {
 		r.Shell = d.Get(resourceUserAttrShell).(string)
+	}
+
+	if v, ok := d.GetOk(resourceUserAttrCreateHome); ok {
+		r.CreateHome = to.BoolPtr(v.(bool))
 	}
 
 	return r, nil

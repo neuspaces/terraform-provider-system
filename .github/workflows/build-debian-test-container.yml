@@ -16,14 +16,14 @@ permissions:
 
 env:
   IMAGE_REGISTRY: ghcr.io
-  # ghcr.io/neuspaces/terraform-provider-system/debian-acctest
+  # ghcr.io/ii1818nn/terraform-provider-system/debian-acctest
   IMAGE_NAME: ghcr.io/${{ github.repository }}/debian-acctest
   IMAGE_BUILD_CONTEXT: ./test/debian/docker
 
 jobs:
   default:
     name: Build/push image
-    if: github.repository == 'neuspaces/terraform-provider-system'
+    if: github.repository == 'ii1818nn/terraform-provider-system'
 
     runs-on: ubuntu-22.04
   
