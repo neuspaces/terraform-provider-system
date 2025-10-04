@@ -125,12 +125,14 @@ func (c *userClient) Create(ctx context.Context, u User) (int, error) {
 
 	if u.System != nil && *u.System {
 		args = append(args, "--system")
-	} else if u.CreateHome != nil && *u.CreateHome {
-		// Create home directory for regular users
-		args = append(args, "--create-home")
-	} else {
-		// Prevent create home directory for regular users
-		args = append(args, "--no-create-home")
+	} else if u.CreateHome != nil {
+		if *u.CreateHome {
+			// Create home directory for regular users
+			args = append(args, "--create-home")
+		} else {
+			// Prevent create home directory for regular users
+			args = append(args, "--no-create-home")
+		}
 	}
 
 	if u.Gid != nil {
