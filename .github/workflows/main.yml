@@ -78,7 +78,7 @@ jobs:
         target:
           - 
             name: alpine
-            image: ghcr.io/neuspaces/terraform-provider-system/alpine-acctest
+            image: ghcr.io/ii1818nn/terraform-provider-system/alpine-acctest
             image_tag: 13cdac2
             test_path: test/alpine
             host_port: 10022
@@ -86,7 +86,7 @@ jobs:
             extra_run_args: --tmpfs /tmp --tmpfs /run -v /sys/fs/cgroup:/sys/fs/cgroup:ro
           - 
             name: debian
-            image: ghcr.io/neuspaces/terraform-provider-system/debian-acctest
+            image: ghcr.io/ii1818nn/terraform-provider-system/debian-acctest
             image_tag: 560b08f
             test_path: test/debian
             host_port: 11022
@@ -94,7 +94,7 @@ jobs:
             extra_run_args: --tmpfs /tmp --tmpfs /run --tmpfs /run/lock --mount type=bind,source=/sys/fs/cgroup,target=/sys/fs/cgroup --cgroupns=host
           - 
             name: fedora
-            image: ghcr.io/neuspaces/terraform-provider-system/fedora-acctest
+            image: ghcr.io/ii1818nn/terraform-provider-system/fedora-acctest
             image_tag: e3d717a
             test_path: test/fedora
             host_port: 12022
@@ -188,7 +188,7 @@ jobs:
     name: Release
     
     # only on push events and if commit has version tag
-    if: ${{ github.repository == 'neuspaces/terraform-provider-system' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+    if: ${{ github.repository == 'ii1818nn/terraform-provider-system' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
 
     needs: acctest
     runs-on: ubuntu-22.04
@@ -212,7 +212,7 @@ jobs:
       -
         name: Import GPG private key
         id: import_gpg_private_key
-        uses: neuspaces/gpg-key-action@v6.1.0
+        uses: ii1818nn/gpg-key-action@v6.1.0
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
