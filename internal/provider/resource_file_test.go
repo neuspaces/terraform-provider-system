@@ -654,6 +654,87 @@ func TestAccFile_fail_existing(t *testing.T) {
 	})
 }
 
+func TestAccFile_create_overwrite(t *testing.T) {
+	testConfig := newTestFileConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("existing", testRunFilePath(target, testConfig.fileName),
+							tfbuild.AttributeString("mode", "644"),
+							tfbuild.AttributeString("content", "hello world!"),
+						),
+					)),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("system_file.existing", "id", testRunFilePath(target, testConfig.fileName)),
+						resource.TestCheckResourceAttr("system_file.existing", "mode", "644"),
+						resource.TestCheckResourceAttr("system_file.existing", "content", "hello world!"),
+					),
+				},
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("existing", testRunFilePath(target, testConfig.fileName),
+							tfbuild.AttributeString("mode", "644"),
+							tfbuild.AttributeString("content", "hello world!"),
+						),
+						testAccFileBlock("test", testRunFilePath(target, testConfig.fileName),
+							tfbuild.AttributeString("mode", "600"),
+							tfbuild.AttributeString("content", "overwritten content!"),
+							tfbuild.AttributeBool("overwrite", true),
+						),
+					)),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("system_file.test", "id", testRunFilePath(target, testConfig.fileName)),
+						resource.TestCheckResourceAttr("system_file.test", "overwrite", "true"),
+						resource.TestCheckResourceAttr("system_file.test", "mode", "600"),
+						resource.TestCheckResourceAttr("system_file.test", "content", "overwritten content!"),
+					),
+				},
+			},
+		})
+	})
+}
+
+func TestAccFile_create_overwrite_fail_type_mismatch(t *testing.T) {
+	testConfig := newTestFileConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFolderBlock("existing", testRunFilePath(target, testConfig.fileName)),
+					)),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("system_folder.existing", "id", testRunFilePath(target, testConfig.fileName)),
+					),
+				},
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFolderBlock("existing", testRunFilePath(target, testConfig.fileName)),
+						testAccFileBlock("test", testRunFilePath(target, testConfig.fileName),
+							tfbuild.AttributeBool("overwrite", true),
+						),
+					)),
+					ExpectError: regexp.MustCompile(`file resource\s+file exists`),
+				},
+			},
+		})
+	})
+}
+
 func TestAccFile_import(t *testing.T) {
 	testConfig := newTestFileConfig()
 

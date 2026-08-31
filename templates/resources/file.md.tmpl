@@ -108,6 +108,21 @@ resource "system_file" "ownership_id" {
 }
 ```
 
+### Overwrite an existing file
+
+By default, `system_file` fails to create the resource if a file already exists at `path`. Set `overwrite` to `true` to instead adopt the existing file, overwriting its content, permissions and ownership to match this resource's configuration.
+
+```terraform
+resource "system_file" "overwrite" {
+  path      = "/root/hello-world.txt"
+  content   = "Hello world!"
+  mode      = 600
+  overwrite = true
+}
+```
+
+If the existing entry at `path` is not a regular file (e.g. a directory), the resource still fails to avoid silently overwriting the wrong kind of entry.
+
 ### Local file source
 
 This example ensures a file exists on the remote at the path `/root/upload.zip` with the content from a file on the local client. The `source` attribute provides the path to the file on the client.
@@ -145,6 +160,7 @@ This section describes general notes for using the `system_file` resource.
 - File content is *not stored* in the state when using the attribute `source`
 - Changes to the content are detected via an MD5 checksum comparison
 - File content is transferred from the client to the remote when the resource is created or the content has changed
+- The `overwrite` attribute only affects resource creation; it has no effect on subsequent updates and is not read back from the remote system
 - Transferred file content is compressed using gzip between client and remote
 
 {{ .SchemaMarkdown | trimspace }}
