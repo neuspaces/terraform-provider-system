@@ -78,11 +78,26 @@ resource "system_folder" "ownership_id" {
 }
 ```
 
+### Overwrite an existing folder
+
+By default, `system_folder` fails to create the resource if a folder already exists at `path`. Set `overwrite` to `true` to instead adopt the existing folder, overwriting its permissions and ownership to match this resource's configuration.
+
+```terraform
+resource "system_folder" "overwrite" {
+  path      = "/root/some-folder"
+  mode      = 700
+  overwrite = true
+}
+```
+
+If the existing entry at `path` is not a folder (e.g. a regular file), the resource still fails to avoid silently overwriting the wrong kind of entry.
+
 ## Notes
 
 This section describes general notes for using the `system_file` resource.
 
 - The parent folder of the folder references by `path` must exist. It will not be created implicitly by the resource.
+- The `overwrite` attribute only affects resource creation; it has no effect on subsequent updates and is not read back from the remote system
 
 {{ .SchemaMarkdown | trimspace }}
 

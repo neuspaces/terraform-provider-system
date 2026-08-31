@@ -17,6 +17,9 @@ type Folder struct {
 	Uid   int
 	Group string
 	Gid   int
+
+	// Overwrite controls whether Create adopts and overwrites a pre-existing folder at Path instead of failing
+	Overwrite bool
 }
 
 func newFolderFromStat(s *stat.Stat) *Folder {
@@ -110,7 +113,14 @@ func (c *folderClient) Create(ctx context.Context, f Folder) error {
 		createCmds = append(createCmds, &ChgrpCommand{Path: pathSub, Group: f.Group})
 	}
 
-	cmd := NewCommand(fmt.Sprintf(`_do() { path=$1; [ ! -e "${path}" ] || return %[2]d; { %[3]s; } || return 1; }; _do '%[1]s';`, f.Path, codeFolderPathExists, CompositeCommand(createCmds).Command()))
+	existsGuard := `[ ! -e "${path}" ]`
+	if f.Overwrite {
+		// Allow Create to proceed if the path is absent or already a directory, but not if it is
+		// some other kind of entry (e.g. a regular file), to avoid silently overwriting the wrong thing
+		existsGuard = `[ ! -e "${path}" ] || [ -d "${path}" ]`
+	}
+
+	cmd := NewCommand(fmt.Sprintf(`_do() { path=$1; %[4]s || return %[2]d; { %[3]s; } || return 1; }; _do '%[1]s';`, f.Path, codeFolderPathExists, CompositeCommand(createCmds).Command(), existsGuard))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
 		return errors.Join(ErrFolder, err)
