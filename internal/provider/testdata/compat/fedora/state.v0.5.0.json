@@ -1,0 +1,275 @@
+{
+  "version": 4,
+  "terraform_version": "1.6.3",
+  "serial": 11,
+  "lineage": "36984a99-08c5-7ca5-e13f-93f60d04358a",
+  "outputs": {},
+  "resources": [
+    {
+      "mode": "managed",
+      "type": "system_file",
+      "name": "content",
+      "provider": "provider[\"registry.terraform.io/neuspaces/system\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "basename": "content.txt",
+            "content": "compat content\n",
+            "content_sensitive": null,
+            "gid": 0,
+            "group": "root",
+            "id": "/root/tfps-compat-v050/content.txt",
+            "md5sum": "gfGIxG0rIDUIt1w8nYzF2Q==",
+            "mode": "644",
+            "path": "/root/tfps-compat-v050/content.txt",
+            "source": null,
+            "uid": 0,
+            "user": "root"
+          },
+          "sensitive_attributes": [],
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjEifQ==",
+          "dependencies": [
+            "system_folder.base"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "system_file",
+      "name": "content_sensitive",
+      "provider": "provider[\"registry.terraform.io/neuspaces/system\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "basename": "sensitive.txt",
+            "content": null,
+            "content_sensitive": "compat sensitive content\n",
+            "gid": 0,
+            "group": "root",
+            "id": "/root/tfps-compat-v050/sensitive.txt",
+            "md5sum": "GTqQ+iBQwZWzb2bwz8+FRA==",
+            "mode": "600",
+            "path": "/root/tfps-compat-v050/sensitive.txt",
+            "source": null,
+            "uid": 0,
+            "user": "root"
+          },
+          "sensitive_attributes": [],
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjEifQ==",
+          "dependencies": [
+            "system_folder.base"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "system_file",
+      "name": "source",
+      "provider": "provider[\"registry.terraform.io/neuspaces/system\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "basename": "source.txt",
+            "content": "",
+            "content_sensitive": "",
+            "gid": 0,
+            "group": "root",
+            "id": "/root/tfps-compat-v050/source.txt",
+            "md5sum": "uxzNDkOUcShssfWHsqciDQ==",
+            "mode": "644",
+            "path": "/root/tfps-compat-v050/source.txt",
+            "source": "etag=uxzNDkOUcShssfWHsqciDQ==",
+            "uid": 0,
+            "user": "root"
+          },
+          "sensitive_attributes": [],
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjEifQ==",
+          "dependencies": [
+            "system_folder.base"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "system_file",
+      "name": "unit",
+      "provider": "provider[\"registry.terraform.io/neuspaces/system\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "basename": "tfps-compat.service",
+            "content": "[Unit]\nDescription=tfps compat busybox web server\n\n[Service]\nExecStart=/usr/sbin/busybox httpd -f -p 18080 -h /tmp\n\n[Install]\nWantedBy=multi-user.target\n",
+            "content_sensitive": null,
+            "gid": 0,
+            "group": "root",
+            "id": "/etc/systemd/system/tfps-compat.service",
+            "md5sum": "p3EPrJj4H2R0iHSQjNtg1Q==",
+            "mode": "644",
+            "path": "/etc/systemd/system/tfps-compat.service",
+            "source": null,
+            "uid": 0,
+            "user": "root"
+          },
+          "sensitive_attributes": [],
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjEifQ=="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "system_folder",
+      "name": "base",
+      "provider": "provider[\"registry.terraform.io/neuspaces/system\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "basename": "tfps-compat-v050",
+            "gid": 0,
+            "group": "root",
+            "id": "/root/tfps-compat-v050",
+            "mode": "755",
+            "path": "/root/tfps-compat-v050",
+            "uid": 0,
+            "user": "root"
+          },
+          "sensitive_attributes": [],
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjEifQ=="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "system_group",
+      "name": "group",
+      "provider": "provider[\"registry.terraform.io/neuspaces/system\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "gid": 4242,
+            "id": "4242",
+            "name": "tfpscompat",
+            "system": false
+          },
+          "sensitive_attributes": [],
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjEifQ=="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "system_link",
+      "name": "link",
+      "provider": "provider[\"registry.terraform.io/neuspaces/system\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "gid": 0,
+            "group": "root",
+            "id": "/root/tfps-compat-v050/link",
+            "path": "/root/tfps-compat-v050/link",
+            "target": "/root/tfps-compat-v050/content.txt",
+            "uid": 0,
+            "user": "root"
+          },
+          "sensitive_attributes": [],
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjEifQ==",
+          "dependencies": [
+            "system_file.content",
+            "system_folder.base"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "system_service_systemd",
+      "name": "service",
+      "provider": "provider[\"registry.terraform.io/neuspaces/system\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "enabled": true,
+            "id": "tfps-compat",
+            "internal": "eyJwcmVfc3RhdHVzIjoic3RvcHBlZCIsInByZV9lbmFibGVkIjpmYWxzZX0=",
+            "name": "tfps-compat",
+            "reload_on": null,
+            "restart_on": null,
+            "scope": "system",
+            "status": "started"
+          },
+          "sensitive_attributes": [],
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjEifQ==",
+          "dependencies": [
+            "system_file.unit"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "system_systemd_unit",
+      "name": "unit",
+      "provider": "provider[\"registry.terraform.io/neuspaces/system\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "enabled": true,
+            "id": "tfps-compat",
+            "internal": "eyJwcmVfc3RhdHVzIjoic3RhcnRlZCIsInByZV9lbmFibGVkIjp0cnVlfQ==",
+            "name": "tfps-compat",
+            "reload_on": null,
+            "restart_on": null,
+            "scope": "system",
+            "status": "started",
+            "type": "service"
+          },
+          "sensitive_attributes": [],
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjEifQ==",
+          "dependencies": [
+            "system_file.unit",
+            "system_service_systemd.service"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "system_user",
+      "name": "user",
+      "provider": "provider[\"registry.terraform.io/neuspaces/system\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "gid": 4242,
+            "group": "tfpscompat",
+            "home": "/root/tfps-compat-v050/home",
+            "id": "4242",
+            "name": "tfpscompat",
+            "shell": "/bin/sh",
+            "system": false,
+            "uid": 4242
+          },
+          "sensitive_attributes": [],
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjEifQ==",
+          "dependencies": [
+            "system_group.group"
+          ]
+        }
+      ]
+    }
+  ],
+  "check_results": null
+}
