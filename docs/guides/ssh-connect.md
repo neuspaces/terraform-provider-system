@@ -9,6 +9,8 @@ description: |-
 
 The provider attributes presented in the examples below are expected to be combined with provider attributes to configure the [SSH authentication](./ssh-auth).
 
+Since v0.6.0 every connection requires a `host_key`, as shown in the examples below. Refer to [Host key verification](..#host-key-verification) for the alternative `insecure_ignore_host_key`.
+
 ## Connection methods
 
 ### Direct connection
@@ -20,6 +22,9 @@ provider "system" {
   ssh {
     host = "10.12.13.14"
     port = 22
+
+    # ssh-keyscan -t ed25519 10.12.13.14
+    host_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI..."
   }
 }
 ```
@@ -34,12 +39,18 @@ provider "system" {
     ssh {
         host = "10.12.13.14"
         port = 22
+
+        # ssh-keyscan -t ed25519 10.12.13.14
+        host_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI..."
     }
   }
 
   ssh {
     host = "192.168.32.4"
     port = 22
+
+    # ssh-keyscan -t ed25519 192.168.32.4
+    host_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI..."
   }
 }
 ```
