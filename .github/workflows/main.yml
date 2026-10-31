@@ -50,6 +50,9 @@ jobs:
           terraform_version: "1.14.9"
           terraform_wrapper: false
 
+      # The runner has no ~/.terraformrc, so tfplugindocs builds the provider into a clean
+      # plugin cache. Locally, a shared `plugin_cache_dir` makes the result depend on which
+      # checkout was built last; run `go generate` with `TF_CLI_CONFIG_FILE=$(mktemp)` there.
       - name: Verify generated files
         run: |
           go generate ./...
