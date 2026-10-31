@@ -1,17 +1,38 @@
 ---
 name: Question
 labels: question
-about: If you have a question, please check out our community resources!
+about: Ask how to use the provider.
 
 ---
 
----
+<!---
+GitHub Discussions are not enabled in this repository, so questions are asked as issues.
+Before you ask, please check:
 
-Issues on GitHub are intended to be related to bugs or feature requests with provider codebase,
-so we recommend using our other community resources instead of asking here 👍.
+* the provider documentation: https://github.com/Dorokhovich-COM/terraform-provider-system/tree/main/docs
+* the existing issues: https://github.com/Dorokhovich-COM/terraform-provider-system/issues?q=is%3Aissue
+--->
 
----
+### Question
 
-If you have a support request or question please submit them to one of these resources:
+<!--- What would you like to know? --->
 
-* [Discussions](https://github.com/neuspaces/terraform-provider-system/discussions)
+### Terraform Version
+
+<!--- Output of `terraform -v` or `tofu -v`, including the version of this provider. --->
+
+### Target System
+
+<!--- Which operating system and init system does the target host run? For example: Debian 12 with systemd. --->
+
+### Terraform Configuration
+
+<!--- Information about code formatting: https://help.github.com/articles/basic-writing-and-formatting-syntax/#quoting-code --->
+
+```tf
+# The relevant part of your configuration. Please remove secrets.
+```
+
+### Additional Context
+
+<!--- Anything else which helps to understand the question. --->
