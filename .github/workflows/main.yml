@@ -268,10 +268,15 @@ jobs:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
+      # The GoReleaser version is pinned, not a range: the release runs once, under the
+      # owner's GPG signature, and must not be built by whichever version happens to be
+      # current on the day of the tag. Dependabot does not update `with.version`, so raise
+      # it by hand once per phase after checking the configuration against the new version.
+      # `archives[].formats` requires GoReleaser v2.6 or newer; do not go below that.
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
-          version: '~> v2'
+          version: 'v2.19.0'
           args: release --clean
         env:
           GPG_FINGERPRINT: ${{ steps.import_gpg_private_key.outputs.fingerprint }}
