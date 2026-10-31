@@ -96,6 +96,7 @@ func TestAccProviderConnect_SshPassword(t *testing.T) {
 				tfbuild.InnerBlock(provider.SchemaAttrSsh,
 					tfbuild.AttributeString(provider.SchemaAttrSshHost, targetConfig.Ssh.Host),
 					tfbuild.AttributeInt(provider.SchemaAttrSshPort, int64(targetConfig.Ssh.Port)),
+					tfbuild.AttributeString(provider.SchemaAttrSshHostKey, targetConfig.Ssh.HostKey),
 					tfbuild.AttributeString(provider.SchemaAttrSshUser, targetConfig.Ssh.User),
 					tfbuild.AttributeString(provider.SchemaAttrSshPassword, targetConfig.Ssh.Password),
 				),
@@ -115,6 +116,7 @@ func TestAccProviderConnect_SshPassword(t *testing.T) {
 				tfbuild.InnerBlock(provider.SchemaAttrSsh,
 					tfbuild.AttributeString(provider.SchemaAttrSshHost, targetConfig.Ssh.Host),
 					tfbuild.AttributeInt(provider.SchemaAttrSshPort, int64(targetConfig.Ssh.Port)),
+					tfbuild.AttributeString(provider.SchemaAttrSshHostKey, targetConfig.Ssh.HostKey),
 					tfbuild.AttributeString(provider.SchemaAttrSshUser, targetConfig.Ssh.User),
 					tfbuild.AttributeString(provider.SchemaAttrSshPassword, "wrong!"),
 				),
@@ -137,6 +139,7 @@ func TestAccProviderConnect_SshPrivateKey(t *testing.T) {
 				tfbuild.InnerBlock(provider.SchemaAttrSsh,
 					tfbuild.AttributeString(provider.SchemaAttrSshHost, targetConfig.Ssh.Host),
 					tfbuild.AttributeInt(provider.SchemaAttrSshPort, int64(targetConfig.Ssh.Port)),
+					tfbuild.AttributeString(provider.SchemaAttrSshHostKey, targetConfig.Ssh.HostKey),
 					tfbuild.AttributeString(provider.SchemaAttrSshUser, targetConfig.Ssh.User),
 					tfbuild.AttributeString(provider.SchemaAttrSshPrivateKey, targetConfig.Ssh.PrivateKey),
 				),
@@ -158,6 +161,7 @@ func TestAccProviderConnect_SshPrivateKey(t *testing.T) {
 				tfbuild.InnerBlock(provider.SchemaAttrSsh,
 					tfbuild.AttributeString(provider.SchemaAttrSshHost, targetConfig.Ssh.Host),
 					tfbuild.AttributeInt(provider.SchemaAttrSshPort, int64(targetConfig.Ssh.Port)),
+					tfbuild.AttributeString(provider.SchemaAttrSshHostKey, targetConfig.Ssh.HostKey),
 					tfbuild.AttributeString(provider.SchemaAttrSshUser, targetConfig.Ssh.User),
 					tfbuild.AttributeString(provider.SchemaAttrSshPrivateKey, unauthorizedPrivateKey),
 				),
@@ -182,6 +186,7 @@ func TestAccProviderConnect_SshAgent(t *testing.T) {
 					tfbuild.InnerBlock(provider.SchemaAttrSsh,
 						tfbuild.AttributeString(provider.SchemaAttrSshHost, targetConfig.Ssh.Host),
 						tfbuild.AttributeInt(provider.SchemaAttrSshPort, int64(targetConfig.Ssh.Port)),
+						tfbuild.AttributeString(provider.SchemaAttrSshHostKey, targetConfig.Ssh.HostKey),
 						tfbuild.AttributeString(provider.SchemaAttrSshUser, targetConfig.Ssh.User),
 						tfbuild.AttributeBool(provider.SchemaAttrSshAgent, true),
 					),
@@ -203,6 +208,7 @@ func TestAccProviderConnect_SshAgent(t *testing.T) {
 					tfbuild.InnerBlock(provider.SchemaAttrSsh,
 						tfbuild.AttributeString(provider.SchemaAttrSshHost, targetConfig.Ssh.Host),
 						tfbuild.AttributeInt(provider.SchemaAttrSshPort, int64(targetConfig.Ssh.Port)),
+						tfbuild.AttributeString(provider.SchemaAttrSshHostKey, targetConfig.Ssh.HostKey),
 						tfbuild.AttributeString(provider.SchemaAttrSshUser, targetConfig.Ssh.User),
 						tfbuild.AttributeBool(provider.SchemaAttrSshAgent, true),
 					),
@@ -226,6 +232,7 @@ func TestAccProviderConnect_SshAgent(t *testing.T) {
 					tfbuild.InnerBlock(provider.SchemaAttrSsh,
 						tfbuild.AttributeString(provider.SchemaAttrSshHost, targetConfig.Ssh.Host),
 						tfbuild.AttributeInt(provider.SchemaAttrSshPort, int64(targetConfig.Ssh.Port)),
+						tfbuild.AttributeString(provider.SchemaAttrSshHostKey, targetConfig.Ssh.HostKey),
 						tfbuild.AttributeString(provider.SchemaAttrSshUser, targetConfig.Ssh.User),
 						tfbuild.AttributeBool(provider.SchemaAttrSshAgent, true),
 						tfbuild.Attribute(provider.SchemaAttrSshAgentIdentities, tfbuild.StringList(
@@ -252,6 +259,7 @@ func TestAccProviderConnect_SshAgent(t *testing.T) {
 					tfbuild.InnerBlock(provider.SchemaAttrSsh,
 						tfbuild.AttributeString(provider.SchemaAttrSshHost, targetConfig.Ssh.Host),
 						tfbuild.AttributeInt(provider.SchemaAttrSshPort, int64(targetConfig.Ssh.Port)),
+						tfbuild.AttributeString(provider.SchemaAttrSshHostKey, targetConfig.Ssh.HostKey),
 						tfbuild.AttributeString(provider.SchemaAttrSshUser, targetConfig.Ssh.User),
 						tfbuild.AttributeBool(provider.SchemaAttrSshAgent, true),
 						tfbuild.Attribute(provider.SchemaAttrSshAgentIdentities, tfbuild.StringList(
@@ -278,6 +286,7 @@ func TestAccProviderConnect_SshAgent(t *testing.T) {
 					tfbuild.InnerBlock(provider.SchemaAttrSsh,
 						tfbuild.AttributeString(provider.SchemaAttrSshHost, targetConfig.Ssh.Host),
 						tfbuild.AttributeInt(provider.SchemaAttrSshPort, int64(targetConfig.Ssh.Port)),
+						tfbuild.AttributeString(provider.SchemaAttrSshHostKey, targetConfig.Ssh.HostKey),
 						tfbuild.AttributeString(provider.SchemaAttrSshUser, targetConfig.Ssh.User),
 						tfbuild.AttributeBool(provider.SchemaAttrSshAgent, true),
 						tfbuild.Attribute(provider.SchemaAttrSshAgentIdentities, tfbuild.StringList(
@@ -294,7 +303,7 @@ func TestAccProviderConnect_SshAgent(t *testing.T) {
 }
 
 func TestAccProviderConnect_SshHostKey(t *testing.T) {
-	t.Run("no host key", func(t *testing.T) {
+	t.Run("no host key is refused", func(t *testing.T) {
 		acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
 			t.Parallel()
 
@@ -307,6 +316,26 @@ func TestAccProviderConnect_SshHostKey(t *testing.T) {
 					tfbuild.AttributeString(provider.SchemaAttrSshUser, targetConfig.Ssh.User),
 					tfbuild.AttributeString(provider.SchemaAttrSshPassword, targetConfig.Ssh.Password),
 				),
+			)
+
+			testAccProviderConnectTestExpectError(t, providerConfig, regexp.MustCompile(regexp.QuoteMeta(`SSH host key verification is not configured`)))
+		})
+	})
+
+	t.Run("no host key with insecure_ignore_host_key", func(t *testing.T) {
+		acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+			t.Parallel()
+
+			targetConfig := getTargetConfigOrSkip(t, target, "auth-password")
+
+			providerConfig := tfbuild.Provider(provider.Name,
+				tfbuild.InnerBlock(provider.SchemaAttrSsh,
+					tfbuild.AttributeString(provider.SchemaAttrSshHost, targetConfig.Ssh.Host),
+					tfbuild.AttributeInt(provider.SchemaAttrSshPort, int64(targetConfig.Ssh.Port)),
+					tfbuild.AttributeString(provider.SchemaAttrSshUser, targetConfig.Ssh.User),
+					tfbuild.AttributeString(provider.SchemaAttrSshPassword, targetConfig.Ssh.Password),
+				),
+				tfbuild.AttributeBool(provider.SchemaAttrInsecureIgnoreHostKey, true),
 			)
 
 			testAccProviderConnectTestExpectConnect(t, targetConfig, providerConfig)
@@ -388,6 +417,7 @@ func TestAccProviderSudo(t *testing.T) {
 				tfbuild.InnerBlock(provider.SchemaAttrSsh,
 					tfbuild.AttributeString(provider.SchemaAttrSshHost, targetConfig.Ssh.Host),
 					tfbuild.AttributeInt(provider.SchemaAttrSshPort, int64(targetConfig.Ssh.Port)),
+					tfbuild.AttributeString(provider.SchemaAttrSshHostKey, targetConfig.Ssh.HostKey),
 					tfbuild.AttributeString(provider.SchemaAttrSshUser, targetConfig.Ssh.User),
 					tfbuild.AttributeString(provider.SchemaAttrSshPassword, targetConfig.Ssh.Password),
 				),
@@ -419,6 +449,7 @@ func TestAccProviderSudo(t *testing.T) {
 				tfbuild.InnerBlock(provider.SchemaAttrSsh,
 					tfbuild.AttributeString(provider.SchemaAttrSshHost, targetConfig.Ssh.Host),
 					tfbuild.AttributeInt(provider.SchemaAttrSshPort, int64(targetConfig.Ssh.Port)),
+					tfbuild.AttributeString(provider.SchemaAttrSshHostKey, targetConfig.Ssh.HostKey),
 					tfbuild.AttributeString(provider.SchemaAttrSshUser, targetConfig.Ssh.User),
 					tfbuild.AttributeString(provider.SchemaAttrSshPassword, targetConfig.Ssh.Password),
 				),
@@ -442,6 +473,7 @@ func TestAccProviderConnect_SshProxy(t *testing.T) {
 				tfbuild.InnerBlock(provider.SchemaAttrSsh,
 					tfbuild.AttributeString(provider.SchemaAttrSshHost, "localhost"),
 					tfbuild.AttributeInt(provider.SchemaAttrSshPort, 22),
+					tfbuild.AttributeString(provider.SchemaAttrSshHostKey, targetConfig.Ssh.HostKey),
 					tfbuild.AttributeString(provider.SchemaAttrSshUser, targetConfig.Ssh.User),
 					tfbuild.AttributeString(provider.SchemaAttrSshPassword, targetConfig.Ssh.Password),
 				),
@@ -449,6 +481,7 @@ func TestAccProviderConnect_SshProxy(t *testing.T) {
 					tfbuild.InnerBlock(provider.SchemaAttrSsh,
 						tfbuild.AttributeString(provider.SchemaAttrSshHost, proxyTargetConfig.Ssh.Host),
 						tfbuild.AttributeInt(provider.SchemaAttrSshPort, int64(proxyTargetConfig.Ssh.Port)),
+						tfbuild.AttributeString(provider.SchemaAttrSshHostKey, proxyTargetConfig.Ssh.HostKey),
 						tfbuild.AttributeString(provider.SchemaAttrSshUser, proxyTargetConfig.Ssh.User),
 						tfbuild.AttributeString(provider.SchemaAttrSshPassword, proxyTargetConfig.Ssh.Password),
 					),

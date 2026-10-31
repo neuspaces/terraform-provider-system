@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/neuspaces/terraform-provider-system/internal/cmd"
@@ -83,6 +84,12 @@ func configure() schema.ConfigureContextFunc {
 			return nil, newInternalUnexpectedTypeDiagnostic("*SchemaSsh", c.Ssh)
 		}
 
+		// Host key policy (v0.6.0): refuse unverified connections unless explicitly allowed
+		diags := hostKeyPolicyDiagnostics(c)
+		if diags.HasError() {
+			return nil, diags
+		}
+
 		// Configure ssh client
 		sshConnectOpts := sshConnectOptsFromSshSchema(*c.Ssh)
 
@@ -160,8 +167,43 @@ func configure() schema.ConfigureContextFunc {
 			_ = s.Close()
 		}(ctx, s)
 
-		return p, nil
+		return p, diags
 	}
+}
+
+const (
+	hostKeyMissingSummary  = "SSH host key verification is not configured"
+	hostKeyDisabledSummary = "SSH host key verification is disabled"
+)
+
+// hostKeyPolicyDiagnostics enforces the host key policy introduced in v0.6.0: a connection to an ssh server
+// without a configured host key is refused unless `insecure_ignore_host_key` is true, in which case a warning
+// is reported. The policy applies to the remote and to the proxy connection alike.
+func hostKeyPolicyDiagnostics(c *Schema) diag.Diagnostics {
+	missing := c.Ssh.HostKey == "" || (c.Proxy != nil && c.Proxy.Ssh != nil && c.Proxy.Ssh.HostKey == "")
+	if !missing {
+		return nil
+	}
+
+	if !c.InsecureIgnoreHostKey {
+		return diag.Diagnostics{{
+			Severity: diag.Error,
+			Summary:  hostKeyMissingSummary,
+			Detail: fmt.Sprintf("The provider refuses to connect to an ssh server whose host key cannot be verified. "+
+				"Set `%[1]s` in the `%[2]s` block (and in the `%[3]s.%[2]s` block when a proxy is used), or `%[1]s`/`%[4]s` in the `%[5]s` block, "+
+				"to the public host key of the server, for example the output of `ssh-keyscan -t ed25519 <host>`. "+
+				"Alternatively set `%[6]s = true` on the provider to restore the behavior of releases before v0.6.0, "+
+				"which ignores the host key and exposes every connection to man-in-the-middle attacks.",
+				SchemaAttrSshHostKey, SchemaAttrSsh, SchemaAttrProxy, SchemaAttrConnectionBastionHostKey, SchemaAttrConnection, SchemaAttrInsecureIgnoreHostKey),
+		}}
+	}
+
+	return diag.Diagnostics{{
+		Severity: diag.Warning,
+		Summary:  hostKeyDisabledSummary,
+		Detail: fmt.Sprintf("`%[1]s` is `true` and `%[2]s` is not set: the identity of the remote ssh server is not verified. "+
+			"Set `%[2]s` to protect the connection against man-in-the-middle attacks.", SchemaAttrInsecureIgnoreHostKey, SchemaAttrSshHostKey),
+	}}
 }
 
 func sshConnectOptsFromSshSchema(s SchemaSsh) []sshclient.ConnectOption {

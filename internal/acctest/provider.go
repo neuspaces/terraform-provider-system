@@ -53,7 +53,7 @@ func initProvider(ctx context.Context, tc ConfigTarget, factories providerFactor
 
 	// Configure
 	diagErr := systemProvider.Configure(configureCtx, providerCfg)
-	if diagErr != nil {
+	if diagErr.HasError() {
 		return nil, fmt.Errorf("failed to configure provider %s: %+v", provider.Name, diagErr)
 	}
 

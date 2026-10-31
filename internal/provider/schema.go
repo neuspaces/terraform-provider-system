@@ -19,6 +19,8 @@ type Schema struct {
 	Retry    bool
 
 	Sudo bool
+
+	InsecureIgnoreHostKey bool
 }
 
 // expandProviderSchema returns a Schema from schema.ResourceData of the provider configuration
@@ -81,6 +83,8 @@ func expandProviderSchema(d *schema.ResourceData) (*Schema, error) {
 
 	s.Sudo = d.Get(SchemaAttrSudo).(bool)
 
+	s.InsecureIgnoreHostKey = d.Get(SchemaAttrInsecureIgnoreHostKey).(bool)
+
 	return s, nil
 }
 
@@ -100,6 +104,8 @@ const (
 
 	SchemaAttrShell = "shell"
 	SchemaAttrSudo  = "sudo"
+
+	SchemaAttrInsecureIgnoreHostKey = "insecure_ignore_host_key"
 )
 
 // providerSchema returns the provider schema
@@ -176,6 +182,12 @@ func providerSchema() map[string]*schema.Schema {
 			Type:        schema.TypeBool,
 			Optional:    true,
 			DefaultFunc: schemaEnvDefaultFunc(SchemaAttrSudo, SchemaEnvPrefix, false),
+		},
+		SchemaAttrInsecureIgnoreHostKey: {
+			Description: fmt.Sprintf("If `true`, the provider connects to a remote ssh server whose `%[1]s` is not configured without verifying its identity, as releases before v0.6.0 did, and reports a warning on every run. Since v0.6.0 the provider refuses to connect when `%[1]s` is not set and this attribute is `false`, because an unverified connection is open to man-in-the-middle attacks. Has no effect when `%[1]s` is set. Defaults to `false`.", SchemaAttrSshHostKey),
+			Type:        schema.TypeBool,
+			Optional:    true,
+			DefaultFunc: schemaEnvDefaultFunc(SchemaAttrInsecureIgnoreHostKey, SchemaEnvPrefix, false),
 		},
 	}
 }
