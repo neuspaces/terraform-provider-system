@@ -1,5 +1,6 @@
 terraform-provider-system
-Copyright (c) 2022-2024 neuspaces (original work)
+Copyright (c) 2022-2024 the neuspaces/terraform-provider-system authors
+(Dominik Lekse, Lars With and contributors) (original work)
 Copyright (c) 2026 Dorokhovich-COM (modifications)
 
 This project is a fork of https://github.com/neuspaces/terraform-provider-system,

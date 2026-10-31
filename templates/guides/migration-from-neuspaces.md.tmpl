@@ -11,6 +11,10 @@ description: |-
 data source and attribute of v0.5.0 exists with the same name, type and import format, and every resource keeps
 schema version 1, so an existing state file is read as is.
 
+v0.6.0 is not a pure drop-in replacement: a configuration that does not set `host_key` fails at
+`terraform plan` with `SSH host key verification is not configured` until it is changed as described in
+Step 3. Read Step 3 before running the commands in Step 2.
+
 ## Step 1: point the configuration at the new provider
 
 ```terraform
