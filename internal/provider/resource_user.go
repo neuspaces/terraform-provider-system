@@ -14,14 +14,15 @@ import (
 const resourceUserName = "system_user"
 
 const (
-	resourceUserAttrId     = "id"
-	resourceUserAttrName   = "name"
-	resourceUserAttrUid    = "uid"
-	resourceUserAttrGroup  = "group"
-	resourceUserAttrGid    = "gid"
-	resourceUserAttrSystem = "system"
-	resourceUserAttrHome   = "home"
-	resourceUserAttrShell  = "shell"
+	resourceUserAttrId         = "id"
+	resourceUserAttrName       = "name"
+	resourceUserAttrUid        = "uid"
+	resourceUserAttrGroup      = "group"
+	resourceUserAttrGid        = "gid"
+	resourceUserAttrSystem     = "system"
+	resourceUserAttrHome       = "home"
+	resourceUserAttrCreateHome = "create_home"
+	resourceUserAttrShell      = "shell"
 )
 
 func resourceUser() *schema.Resource {
@@ -78,11 +79,17 @@ func resourceUser() *schema.Resource {
 				ForceNew:    true,
 			},
 			resourceUserAttrHome: {
-				Description:      "Path to the home folder of the user. The folder is expected to exist and will not be created.",
+				Description:      fmt.Sprintf("Path to the home folder of the user. Unless `%s` is `true`, the folder is expected to exist and will not be created.", resourceUserAttrCreateHome),
 				Type:             schema.TypeString,
 				Optional:         true,
 				Computed:         true,
 				ValidateDiagFunc: validate.AbsolutePath(),
+			},
+			resourceUserAttrCreateHome: {
+				Description: fmt.Sprintf("If `true`, the home directory (`%[1]s`) is created together with the user (`useradd --create-home`). Only evaluated when the user is created; changing the value afterwards neither creates nor removes the directory. Defaults to `false`, which reproduces the behavior of releases before v0.6.0 (`--no-create-home`).", resourceUserAttrHome),
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
 			},
 			resourceUserAttrShell: {
 				Description:      "Login shell of the user.",
@@ -125,6 +132,9 @@ func resourceUserGetResourceData(d *schema.ResourceData) (*client.User, diag.Dia
 	if d.HasChange(resourceUserAttrShell) {
 		r.Shell = d.Get(resourceUserAttrShell).(string)
 	}
+
+	// Note: create_home is only evaluated when the user is created; Update ignores it
+	r.CreateHome = to.BoolPtr(d.Get(resourceUserAttrCreateHome).(bool))
 
 	return r, nil
 }
