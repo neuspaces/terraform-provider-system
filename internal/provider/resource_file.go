@@ -31,6 +31,7 @@ const (
 	resourceFileAttrSource           = "source"
 	resourceFileAttrMd5Sum           = "md5sum"
 	resourceFileAttrBasename         = "basename"
+	resourceFileAttrOverwrite        = "overwrite"
 )
 
 func resourceFile() *schema.Resource {
@@ -203,20 +204,27 @@ func resourceFile() *schema.Resource {
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
+			resourceFileAttrOverwrite: {
+				Description: fmt.Sprintf("If `true`, an existing regular file at `%[1]s` is adopted when the resource is created: its content, permissions and ownership are set from this resource instead of failing with `file exists`. Any other kind of entry at `%[1]s` (for example a directory) still fails. Has no effect once the resource exists and is not read back from the remote system. Defaults to `false`.", resourceFileAttrPath),
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+			},
 		},
 	}
 }
 
 func resourceFileGetResourceData(sources *source.Registry, d *schema.ResourceData) (*client.File, diag.Diagnostics) {
 	r := &client.File{
-		Path:    d.Get(resourceFileAttrPath).(string),
-		Mode:    0,
-		User:    "",
-		Uid:     -1,
-		Group:   "",
-		Gid:     -1,
-		Content: nil,
-		Md5Sum:  "",
+		Path:      d.Get(resourceFileAttrPath).(string),
+		Mode:      0,
+		User:      "",
+		Uid:       -1,
+		Group:     "",
+		Gid:       -1,
+		Content:   nil,
+		Md5Sum:    "",
+		Overwrite: d.Get(resourceFileAttrOverwrite).(bool),
 	}
 
 	if d.HasChange(resourceFileAttrMode) {
@@ -425,6 +433,10 @@ func resourceFileImportState(ctx context.Context, d *schema.ResourceData, m inte
 			return nil, fmt.Errorf("unexpected import id format")
 		}
 	}
+
+	// `overwrite` is a create-time flag which is not read back from the remote system;
+	// set it to its schema default so that imported state matches a configuration which omits it
+	_ = d.Set(resourceFileAttrOverwrite, false)
 
 	d.SetId(importIdParts[0])
 

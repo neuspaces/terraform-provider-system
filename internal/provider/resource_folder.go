@@ -14,14 +14,15 @@ import (
 const resourceFolderName = "system_folder"
 
 const (
-	resourceFolderAttrId       = "id"
-	resourceFolderAttrPath     = "path"
-	resourceFolderAttrMode     = "mode"
-	resourceFolderAttrUser     = "user"
-	resourceFolderAttrUid      = "uid"
-	resourceFolderAttrGroup    = "group"
-	resourceFolderAttrGid      = "gid"
-	resourceFolderAttrBasename = "basename"
+	resourceFolderAttrId        = "id"
+	resourceFolderAttrPath      = "path"
+	resourceFolderAttrMode      = "mode"
+	resourceFolderAttrUser      = "user"
+	resourceFolderAttrUid       = "uid"
+	resourceFolderAttrGroup     = "group"
+	resourceFolderAttrGid       = "gid"
+	resourceFolderAttrBasename  = "basename"
+	resourceFolderAttrOverwrite = "overwrite"
 )
 
 func resourceFolder() *schema.Resource {
@@ -92,18 +93,25 @@ func resourceFolder() *schema.Resource {
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
+			resourceFolderAttrOverwrite: {
+				Description: fmt.Sprintf("If `true`, an existing folder at `%[1]s` is adopted when the resource is created: its permissions and ownership are set from this resource instead of failing with `folder path exists`. Any other kind of entry at `%[1]s` (for example a regular file) still fails. Has no effect once the resource exists and is not read back from the remote system. Defaults to `false`.", resourceFolderAttrPath),
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+			},
 		},
 	}
 }
 
 func resourceFolderGetResourceData(d *schema.ResourceData) (*client.Folder, diag.Diagnostics) {
 	r := &client.Folder{
-		Path:  d.Get(resourceFolderAttrPath).(string),
-		Mode:  0,
-		User:  "",
-		Uid:   -1,
-		Group: "",
-		Gid:   -1,
+		Path:      d.Get(resourceFolderAttrPath).(string),
+		Mode:      0,
+		User:      "",
+		Uid:       -1,
+		Group:     "",
+		Gid:       -1,
+		Overwrite: d.Get(resourceFolderAttrOverwrite).(bool),
 	}
 
 	if d.HasChange(resourceFolderAttrMode) {

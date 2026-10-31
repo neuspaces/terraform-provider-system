@@ -1,11 +1,14 @@
 package provider_test
 
 import (
+	"context"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/neuspaces/terraform-provider-system/internal/acctest"
 	"github.com/neuspaces/terraform-provider-system/internal/acctest/tfbuild"
+	"github.com/neuspaces/terraform-provider-system/internal/client"
 	"path"
+	"regexp"
 	"sync/atomic"
 	"testing"
 )
@@ -106,4 +109,73 @@ func testAccFolderBlock(name string, path string, attrs ...tfbuild.BlockElement)
 	resourceAttrs = append(resourceAttrs, attrs...)
 
 	return tfbuild.Resource("system_folder", name, resourceAttrs...)
+}
+
+func TestAccFolder_overwrite_existing(t *testing.T) {
+	testConfig := newTestFolderConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+		folderPath := testRunFolderPath(target, testConfig.folderName)
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					PreConfig: func() {
+						err := client.NewFolderClient(target.Provider.System).Create(context.Background(), client.Folder{
+							Path: folderPath, Mode: 0o755, Uid: -1, Gid: -1,
+						})
+						if err != nil {
+							t.Fatalf("pre-create folder %s: %v", folderPath, err)
+						}
+					},
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFolderBlock("test", folderPath,
+							tfbuild.AttributeString("mode", "700"),
+							tfbuild.AttributeBool("overwrite", true),
+						),
+					)),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("system_folder.test", "id", folderPath),
+						resource.TestCheckResourceAttr("system_folder.test", "overwrite", "true"),
+						resource.TestCheckResourceAttr("system_folder.test", "mode", "700"),
+					),
+				},
+			},
+		})
+	})
+}
+
+func TestAccFolder_overwrite_fail_type_mismatch(t *testing.T) {
+	testConfig := newTestFolderConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+		folderPath := testRunFolderPath(target, testConfig.folderName)
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					PreConfig: func() {
+						err := client.NewFileClient(target.Provider.System).Create(context.Background(), client.File{
+							Path: folderPath, Uid: -1, Gid: -1,
+						})
+						if err != nil {
+							t.Fatalf("pre-create file %s: %v", folderPath, err)
+						}
+					},
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFolderBlock("test", folderPath,
+							tfbuild.AttributeBool("overwrite", true),
+						),
+					)),
+					ExpectError: regexp.MustCompile(`folder resource\s+folder path exists`),
+				},
+			},
+		})
+	})
 }
