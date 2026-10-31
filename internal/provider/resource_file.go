@@ -130,11 +130,10 @@ func resourceFile() *schema.Resource {
 				},
 			},
 			resourceFileAttrSource: {
-				Description: fmt.Sprintf("Path to a local file to upload as the file. Mutually exclusive with attributes `%[1]s` and `%[2]s`.", resourceFileAttrContent, resourceFileAttrContentSensitive, resourceFileAttrSource),
+				Description: fmt.Sprintf("Path to a local file to upload as the file. Mutually exclusive with attributes `%[1]s` and `%[2]s`. Changing the referenced content (detected by its etag) updates the remote file in place.", resourceFileAttrContent, resourceFileAttrContentSensitive, resourceFileAttrSource),
 				Type:        schema.TypeString,
 				Optional:    true,
 				Sensitive:   false,
-				ForceNew:    true,
 				ValidateDiagFunc: func(val interface{}, path cty.Path) diag.Diagnostics {
 					valUrl, err := validate.ExpectUrl(val, path)
 					if err != nil {
@@ -247,18 +246,13 @@ func resourceFileGetResourceData(sources *source.Registry, d *schema.ResourceDat
 		r.Gid = intOrDefault(optional(d.GetOk(resourceFileAttrGid)), -1)
 	}
 
-	if d.HasChange(resourceFileAttrContent) {
-		content := d.Get(resourceFileAttrContent).(string)
-		if content != "" {
-			r.Content = bytes.NewReader([]byte(content))
-		}
-	} else if d.HasChange(resourceFileAttrContentSensitive) {
-		content := d.Get(resourceFileAttrContentSensitive).(string)
-		if content != "" {
-			r.Content = bytes.NewReader([]byte(content))
-		}
-	} else if d.HasChange(resourceFileAttrSource) {
-		sourceUrlStr := d.Get(resourceFileAttrSource).(string)
+	// Pick the content source whose *new* value is non-empty; a change to an empty value means the attribute was removed
+	// or the configuration switched to another content attribute, and must not shadow the attribute which now carries content
+	if content := d.Get(resourceFileAttrContent).(string); d.HasChange(resourceFileAttrContent) && content != "" {
+		r.Content = bytes.NewReader([]byte(content))
+	} else if content := d.Get(resourceFileAttrContentSensitive).(string); d.HasChange(resourceFileAttrContentSensitive) && content != "" {
+		r.Content = bytes.NewReader([]byte(content))
+	} else if sourceUrlStr := d.Get(resourceFileAttrSource).(string); d.HasChange(resourceFileAttrSource) && sourceUrlStr != "" {
 		s, err := sources.Open(sourceUrlStr)
 		if err != nil {
 			return nil, diag.FromErr(err)
@@ -378,7 +372,7 @@ func resourceFileUpdateFactory(sources *source.Registry) schema.UpdateContextFun
 			return diagErr
 		}
 
-		c := client.NewFileClient(p.System)
+		c := client.NewFileClient(p.System, client.FileClientCompression(true))
 
 		r, diagErr := resourceFileGetResourceData(sources, d)
 		if diagErr != nil {

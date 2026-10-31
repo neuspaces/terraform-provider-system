@@ -11,7 +11,9 @@ import (
 	"github.com/neuspaces/terraform-provider-system/internal/lib/osrelease"
 	"github.com/neuspaces/terraform-provider-system/internal/provider"
 	"io"
+	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -941,6 +943,150 @@ func TestAccFile_overwrite_default_false_fails_on_existing(t *testing.T) {
 						testAccFileBlock("test", filePath, tfbuild.AttributeString("content", "x")),
 					)),
 					ExpectError: regexp.MustCompile(`file resource\s+file exists`),
+				},
+			},
+		})
+	})
+}
+
+// testAccFileRemoteSh runs a shell snippet on the target and returns trimmed stdout
+func testAccFileRemoteSh(target acctest.Target, script string) (string, error) {
+	res, err := client.ExecuteCommand(context.Background(), target.Provider.System, client.NewCommand(script))
+	if err != nil {
+		return "", err
+	}
+	if res.ExitCode != 0 {
+		return "", fmt.Errorf("remote command failed (%d): %s", res.ExitCode, string(res.Stderr))
+	}
+	return strings.TrimSpace(string(res.Stdout)), nil
+}
+
+func TestAccFile_source_update_in_place(t *testing.T) {
+	testConfig := newTestFileConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+		filePath := testRunFilePath(target, testConfig.fileName)
+		linkPath := filePath + ".hardlink"
+		localSource := filepath.Join(t.TempDir(), "source.txt")
+		if err := os.WriteFile(localSource, []byte("content A\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		config := func() string {
+			return tfbuild.FileString(tfbuild.File(
+				acctest.ProviderConfigBlock(target.Configs.Default()),
+				testAccFileBlock("test", filePath,
+					tfbuild.AttributeString("mode", "644"),
+					tfbuild.AttributeString("source", localSource),
+				),
+			))
+		}
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: config(),
+					Check: resource.ComposeTestCheckFunc(
+						// printf 'content A\n' | openssl dgst -binary -md5 | openssl base64
+						resource.TestCheckResourceAttr("system_file.test", "md5sum", "1UlFuYpYWUrlqNhcarkN1Q=="),
+						// Hard-link the remote file: an in-place rewrite keeps the inode, so the link follows the new content;
+						// a delete+create would leave the link with the old content and a link count of 1.
+						func(_ *terraform.State) error {
+							_, err := testAccFileRemoteSh(target, fmt.Sprintf(`ln '%s' '%s' && stat -c %%h '%s'`, filePath, linkPath, filePath))
+							return err
+						},
+					),
+				},
+				{
+					PreConfig: func() {
+						if err := os.WriteFile(localSource, []byte("content B\n"), 0o644); err != nil {
+							t.Fatal(err)
+						}
+					},
+					Config: config(),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("system_file.test", "id", filePath),
+						// printf 'content B\n' | openssl dgst -binary -md5 | openssl base64
+						resource.TestCheckResourceAttr("system_file.test", "md5sum", "W5nAopCKD+3fpMZCY7KW/Q=="),
+						testAccCheckRemoteFileContent(target, filePath, "content B\n"),
+						func(_ *terraform.State) error {
+							out, err := testAccFileRemoteSh(target, fmt.Sprintf(`cat '%s'; stat -c %%h '%s'`, linkPath, filePath))
+							if err != nil {
+								return err
+							}
+							if out != "content B\n2" && out != "content B\n\n2" {
+								return fmt.Errorf("expected in-place update (hard link shares content B, link count 2), got: %q", out)
+							}
+							return nil
+						},
+					),
+				},
+			},
+		})
+	})
+}
+
+func TestAccFile_update_content_to_source(t *testing.T) {
+	testConfig := newTestFileConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+		filePath := testRunFilePath(target, testConfig.fileName)
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("test", filePath, tfbuild.AttributeString("content", "hello world!")),
+					)),
+					Check: resource.TestCheckResourceAttr("system_file.test", "md5sum", "/D/5joxqDTCH1RXARz+Gdw=="),
+				},
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("test", filePath, tfbuild.AttributeString("source", "./test/hello-universe.txt")),
+					)),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("system_file.test", "md5sum", "w0Y+MwVOASL+sUYDnI0Eww=="),
+						resource.TestCheckResourceAttr("system_file.test", "content", ""),
+					),
+				},
+			},
+		})
+	})
+}
+
+func TestAccFile_update_source_removed(t *testing.T) {
+	testConfig := newTestFileConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+		filePath := testRunFilePath(target, testConfig.fileName)
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("test", filePath, tfbuild.AttributeString("source", "./test/hello-world.txt")),
+					)),
+					Check: resource.TestCheckResourceAttr("system_file.test", "md5sum", "/D/5joxqDTCH1RXARz+Gdw=="),
+				},
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("test", filePath, tfbuild.AttributeString("mode", "600")),
+					)),
+					Check: resource.ComposeTestCheckFunc(
+						// the remote file keeps its content; only mode changes
+						resource.TestCheckResourceAttr("system_file.test", "md5sum", "/D/5joxqDTCH1RXARz+Gdw=="),
+						resource.TestCheckResourceAttr("system_file.test", "mode", "600"),
+					),
 				},
 			},
 		})
