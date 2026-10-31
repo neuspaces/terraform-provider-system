@@ -11,13 +11,14 @@ import (
 )
 
 type User struct {
-	Name   string
-	Uid    *int
-	Group  string
-	Gid    *int
-	System *bool
-	Home   string
-	Shell  string
+	Name       string
+	Uid        *int
+	Group      string
+	Gid        *int
+	System     *bool
+	Home       string
+	CreateHome *bool
+	Shell      string
 }
 
 type UserClient interface {
@@ -124,8 +125,13 @@ func (c *userClient) Create(ctx context.Context, u User) (int, error) {
 
 	if u.System != nil && *u.System {
 		args = append(args, "--system")
-	} else {
-		// Prevent create home directory for regular users
+	}
+
+	if u.CreateHome != nil && *u.CreateHome {
+		// Create the home directory (useradd -m)
+		args = append(args, "--create-home")
+	} else if u.System == nil || !*u.System {
+		// Prevent creating the home directory for regular users, as releases before v0.6.0 did unconditionally
 		args = append(args, "--no-create-home")
 	}
 

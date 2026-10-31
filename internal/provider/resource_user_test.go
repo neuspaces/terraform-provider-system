@@ -1,11 +1,16 @@
 package provider_test
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 	"github.com/neuspaces/terraform-provider-system/internal/acctest"
 	"github.com/neuspaces/terraform-provider-system/internal/acctest/tfbuild"
+	"github.com/neuspaces/terraform-provider-system/internal/client"
 	"github.com/neuspaces/terraform-provider-system/internal/provider"
+	"path"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -230,6 +235,85 @@ func TestAccUser_system_create(t *testing.T) {
 			},
 		})
 	})
+}
+
+// testAccCheckRemoteFolder asserts over ssh whether a folder exists on the target
+func testAccCheckRemoteFolder(target acctest.Target, folderPath string, expectExists bool) resource.TestCheckFunc {
+	return func(_ *terraform.State) error {
+		_, err := client.NewFolderClient(target.Provider.System).Get(context.Background(), folderPath)
+		switch {
+		case expectExists && err != nil:
+			return fmt.Errorf("expected folder %s to exist: %v", folderPath, err)
+		case !expectExists && err == nil:
+			return fmt.Errorf("expected folder %s to be absent", folderPath)
+		case !expectExists && !errors.Is(err, client.ErrFolderNotFound):
+			return err
+		}
+		return nil
+	}
+}
+
+func testAccUserCreateHomeCase(t *testing.T, createHome *bool, system bool, expectHome bool) {
+	testConfig := newTestUserConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+		homePath := path.Join(target.BasePath, "home-"+testConfig.userName)
+
+		userAttrs := []tfbuild.BlockElement{
+			tfbuild.AttributeTraversal("group", tfbuild.TraversalResourceAttribute("system_group", "test", "name")),
+			tfbuild.AttributeString("home", homePath),
+		}
+		groupAttrs := []tfbuild.BlockElement{}
+		if system {
+			userAttrs = append(userAttrs, tfbuild.AttributeBool("system", true))
+			groupAttrs = append(groupAttrs, tfbuild.AttributeBool("system", true))
+		}
+		expectedAttr := "false"
+		if createHome != nil {
+			userAttrs = append(userAttrs, tfbuild.AttributeBool("create_home", *createHome))
+			if *createHome {
+				expectedAttr = "true"
+			}
+		}
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: provider.TestLogString(t, tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccGroupBlock("test", testRunGroupName(testConfig.userName, "a"), groupAttrs...),
+						testAccUserBlock("test", testRunUserName(testConfig.userName, "a"), userAttrs...),
+					))),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("system_user.test", "home", homePath),
+						resource.TestCheckResourceAttr("system_user.test", "create_home", expectedAttr),
+						testAccCheckRemoteFolder(target, homePath, expectHome),
+					),
+				},
+			},
+		})
+	})
+}
+
+func TestAccUser_create_home(t *testing.T) {
+	v := true
+	testAccUserCreateHomeCase(t, &v, false, true)
+}
+
+func TestAccUser_create_home_false(t *testing.T) {
+	v := false
+	testAccUserCreateHomeCase(t, &v, false, false)
+}
+
+func TestAccUser_create_home_default_false(t *testing.T) {
+	testAccUserCreateHomeCase(t, nil, false, false)
+}
+
+func TestAccUser_create_home_system(t *testing.T) {
+	v := true
+	testAccUserCreateHomeCase(t, &v, true, true)
 }
 
 func testRunUserName(userName string, extensions ...string) string {
