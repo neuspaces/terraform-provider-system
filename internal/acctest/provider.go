@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/neuspaces/terraform-provider-system/internal/provider"
+	"log"
 )
 
 type providerFactoryMap map[string]func() (*schema.Provider, error)
@@ -55,6 +56,11 @@ func initProvider(ctx context.Context, tc ConfigTarget, factories providerFactor
 	diagErr := systemProvider.Configure(configureCtx, providerCfg)
 	if diagErr.HasError() {
 		return nil, fmt.Errorf("failed to configure provider %s: %+v", provider.Name, diagErr)
+	}
+
+	// Warnings are not an error, but they must not be swallowed silently
+	if len(diagErr) > 0 {
+		log.Printf("[WARN] provider configure: %+v", diagErr)
 	}
 
 	return systemProvider, nil

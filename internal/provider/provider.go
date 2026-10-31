@@ -11,6 +11,7 @@ import (
 	systemssh "github.com/neuspaces/terraform-provider-system/internal/system/ssh"
 	"github.com/sethvargo/go-retry"
 	"golang.org/x/crypto/ssh"
+	"strings"
 	"time"
 )
 
@@ -180,8 +181,20 @@ const (
 // without a configured host key is refused unless `insecure_ignore_host_key` is true, in which case a warning
 // is reported. The policy applies to the remote and to the proxy connection alike.
 func hostKeyPolicyDiagnostics(c *Schema) diag.Diagnostics {
-	missing := c.Ssh.HostKey == "" || (c.Proxy != nil && c.Proxy.Ssh != nil && c.Proxy.Ssh.HostKey == "")
-	if !missing {
+	// Collect the places where a host key is expected but not configured, so that a diagnostic can
+	// name them. The `connection` block is expanded into the same two places: `host_key` becomes the
+	// host key of the remote, `bastion_host_key` the host key of the proxy.
+	var missing []string
+
+	if c.Ssh.HostKey == "" {
+		missing = append(missing, fmt.Sprintf("`%s` in the `%s` block (or `%s` in the `%s` block)", SchemaAttrSshHostKey, SchemaAttrSsh, SchemaAttrConnectionHostKey, SchemaAttrConnection))
+	}
+
+	if c.Proxy != nil && c.Proxy.Ssh != nil && c.Proxy.Ssh.HostKey == "" {
+		missing = append(missing, fmt.Sprintf("`%s` in the `%s.%s` block (or `%s` in the `%s` block)", SchemaAttrSshHostKey, SchemaAttrProxy, SchemaAttrSsh, SchemaAttrConnectionBastionHostKey, SchemaAttrConnection))
+	}
+
+	if len(missing) == 0 {
 		return nil
 	}
 
@@ -198,11 +211,26 @@ func hostKeyPolicyDiagnostics(c *Schema) diag.Diagnostics {
 		}}
 	}
 
+	missingList := strings.Join(missing, " and ")
+
+	if c.InsecureIgnoreHostKeyFromEnv {
+		// The configuration gives no hint that host key verification is disabled, so name the
+		// environment variable which disabled it
+		return diag.Diagnostics{{
+			Severity: diag.Warning,
+			Summary:  fmt.Sprintf("%s by the environment variable %s", hostKeyDisabledSummary, SchemaEnvInsecureIgnoreHostKey),
+			Detail: fmt.Sprintf("The environment variable `%[1]s` sets `%[2]s` to `true` and %[3]s is not set: "+
+				"the identity of that ssh server is not verified. The provider configuration does not show this. "+
+				"Unset `%[1]s` and set %[3]s to protect the connection against man-in-the-middle attacks.",
+				SchemaEnvInsecureIgnoreHostKey, SchemaAttrInsecureIgnoreHostKey, missingList),
+		}}
+	}
+
 	return diag.Diagnostics{{
 		Severity: diag.Warning,
 		Summary:  hostKeyDisabledSummary,
-		Detail: fmt.Sprintf("`%[1]s` is `true` and `%[2]s` is not set: the identity of the remote ssh server is not verified. "+
-			"Set `%[2]s` to protect the connection against man-in-the-middle attacks.", SchemaAttrInsecureIgnoreHostKey, SchemaAttrSshHostKey),
+		Detail: fmt.Sprintf("`%[1]s` is `true` and %[2]s is not set: the identity of that ssh server is not verified. "+
+			"Set it to protect the connection against man-in-the-middle attacks.", SchemaAttrInsecureIgnoreHostKey, missingList),
 	}}
 }
 
