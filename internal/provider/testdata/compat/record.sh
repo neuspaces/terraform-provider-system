@@ -32,6 +32,17 @@ SSH_USER=${SSH_USER:-root}
 SSH_PASSWORD=${SSH_PASSWORD:-'root!'}
 
 # 1. build upstream v0.5.0 from the tag (same code as the released binary)
+# Guard against a moved tag: v0.5.0 is the upstream release this fork started from
+expected_commit=bf40626
+actual_commit=$(git -C "$repo" rev-parse --short=7 'v0.5.0^{commit}')
+case "$actual_commit" in
+    "$expected_commit"*) ;;
+    *)
+        echo "tag v0.5.0 points at $actual_commit, expected $expected_commit; refusing to record a fixture from an unexpected commit" >&2
+        exit 1
+        ;;
+esac
+
 git -C "$repo" archive v0.5.0 | tar -x -C "$work"
 mkdir -p "$work/bin"
 (cd "$work" && GOFLAGS=-mod=mod go build -o "$work/bin/terraform-provider-system" .)

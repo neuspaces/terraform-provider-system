@@ -51,6 +51,12 @@ func TestAccCompat_upstream_state_empty_plan(t *testing.T) {
 	providerDir := compatBuildProvider(t)
 	env := compatEnv(t, providerDir)
 
+	// Without this guard the test reports success without asserting anything, for example when a target of
+	// TF_ACC_PROVIDER_SYSTEM_TARGETS is misspelled and no target is selected at all
+	if len(acctest.Current().Targets) == 0 {
+		t.Fatal("no acceptance targets selected")
+	}
+
 	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
 		fixture := filepath.Join("testdata", "compat", target.Os.Id)
 		state := filepath.Join(fixture, "state.v0.5.0.json")
@@ -61,9 +67,13 @@ func TestAccCompat_upstream_state_empty_plan(t *testing.T) {
 		bootstrap := compatWorkdir(t, fixture, target)
 		migrate := compatWorkdir(t, fixture, target)
 
+		// migrated is true once the state in the migrate directory refers to the provider under test; before that a
+		// destroy from the migrate directory cannot work, because the provider of the state is not installed
+		migrated := false
+
 		// Remove the remote objects at the end of the test, preferably through the migrated state
 		t.Cleanup(func() {
-			if _, err := os.Stat(filepath.Join(migrate, "terraform.tfstate")); err == nil {
+			if migrated {
 				if out, err := compatExec(cli.path, migrate, env, "destroy", "-auto-approve", "-input=false"); err != nil {
 					t.Errorf("destroy from migrated state failed: %v\n%s", err, out)
 				} else {
@@ -87,9 +97,10 @@ func TestAccCompat_upstream_state_empty_plan(t *testing.T) {
 		// 2. drop in the upstream state and move it to the provider address of the fork
 		compatCopy(t, state, filepath.Join(migrate, "terraform.tfstate"))
 		compatRun(t, cli.path, migrate, env, "state", "replace-provider", "-auto-approve", compatUpstreamAddr, cli.host+"/"+compatForkNamespace)
+		migrated = true
 
 		// 3. the plan must be empty
-		out, err := compatExec(cli.path, migrate, env, "plan", "-detailed-exitcode", "-input=false", "-no-color")
+		out, err := compatExec(cli.path, migrate, env, "plan", "-detailed-exitcode", "-input=false", "-no-color", "-out=plan.out")
 
 		var exitErr *exec.ExitError
 		switch {
@@ -97,7 +108,13 @@ func TestAccCompat_upstream_state_empty_plan(t *testing.T) {
 			// exit code 0: no changes
 			return
 		case errors.As(err, &exitErr) && exitErr.ExitCode() == 2:
-			t.Fatalf("plan is not empty after migrating the upstream v0.5.0 state:\n%s\n%s", compatPlannedChanges(cli, migrate, env), out)
+			// exit code 2: changes present; report them from the very plan which returned exit code 2
+			show, showErr := compatExec(cli.path, migrate, env, "show", "-json", "plan.out")
+			if showErr != nil {
+				t.Fatalf("plan is not empty after migrating the upstream v0.5.0 state, and `show -json plan.out` failed: %v\n%s\n%s", showErr, show, out)
+			}
+
+			t.Fatalf("plan is not empty after migrating the upstream v0.5.0 state:\n%s\n%s", compatSummarizeChanges(show), out)
 		default:
 			t.Fatalf("plan failed: %v\n%s", err, out)
 		}
@@ -255,47 +272,36 @@ func compatRun(t *testing.T, cli string, dir string, env []string, args ...strin
 	return out
 }
 
-// compatPlannedChanges lists the planned changes of a plan which are not a no-op.
-//
-// A plan file cannot be used because the CLI refuses to save a plan while provider development overrides are in
-// effect, hence the machine readable output of a second plan.
+// compatSummarizeChanges lists the resource changes of a `show -json` plan which are not a no-op.
 //
 // In v0.7.0, when `source` is updated in place instead of forcing a new resource, exactly one `update` of
 // system_file.source is expected and is to be allowed here (owner decision 1 of the phase 1 plan).
-func compatPlannedChanges(cli compatCLIInfo, dir string, env []string) string {
-	out, _ := compatExec(cli.path, dir, env, "plan", "-input=false", "-no-color", "-json")
+func compatSummarizeChanges(showJSON string) string {
+	var plan struct {
+		ResourceChanges []struct {
+			Address string `json:"address"`
+			Change  struct {
+				Actions []string `json:"actions"`
+			} `json:"change"`
+		} `json:"resource_changes"`
+	}
+
+	if err := json.Unmarshal([]byte(showJSON), &plan); err != nil {
+		return showJSON
+	}
 
 	var b strings.Builder
 
-	for _, line := range strings.Split(out, "\n") {
-		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, "{") {
+	for _, rc := range plan.ResourceChanges {
+		if len(rc.Change.Actions) == 1 && rc.Change.Actions[0] == "no-op" {
 			continue
 		}
 
-		var msg struct {
-			Type   string `json:"type"`
-			Change struct {
-				Resource struct {
-					Addr string `json:"addr"`
-				} `json:"resource"`
-				Action string `json:"action"`
-			} `json:"change"`
-		}
-
-		if err := json.Unmarshal([]byte(line), &msg); err != nil {
-			continue
-		}
-
-		if msg.Type != "planned_change" || msg.Change.Action == "noop" {
-			continue
-		}
-
-		fmt.Fprintf(&b, "%s: %s\n", msg.Change.Resource.Addr, msg.Change.Action)
+		fmt.Fprintf(&b, "%s: %s\n", rc.Address, strings.Join(rc.Change.Actions, ","))
 	}
 
 	if b.Len() == 0 {
-		return "no planned changes reported by `plan -json`"
+		return "no changed resources in `show -json plan.out`"
 	}
 
 	return b.String()
