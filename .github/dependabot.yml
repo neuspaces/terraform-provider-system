@@ -7,6 +7,13 @@ updates:
     target-branch: development
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # gopkg.in/yaml.v3 is held at the pre-v3.0.1 commit by a `replace` directive in go.mod.
+      # v3.0.1 merges YAML merge keys (`<<`) shallowly, so an explicit `ssh:` block in
+      # internal/provider/acctest.yaml replaces the one inherited from the `base` anchor
+      # instead of extending it. The acceptance targets then carry no host, port or host key
+      # and every acceptance test fails with `dial tcp :0`. Do not propose lifting the pin.
+      - dependency-name: gopkg.in/yaml.v3
     groups:
       hashicorp:
         patterns:
