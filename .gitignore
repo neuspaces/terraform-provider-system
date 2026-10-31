@@ -11,3 +11,4 @@
 *.tfstate.*.backup
 *.tfstate.backup
 *_override.tf
+/dist/

@@ -1,3 +1,4 @@
+version: 2
 builds:
 - env:
     # goreleaser does not work with CGO, it could also complicate
@@ -22,9 +23,14 @@ builds:
   ignore:
     - goos: darwin
       goarch: '386'
+    # The 32-bit windows/arm port was removed from Go: it is absent from
+    # `go tool dist list` on the toolchain pinned in go.mod and `go build` fails with
+    # "unsupported GOOS/GOARCH pair windows/arm".
+    - goos: windows
+      goarch: arm
   binary: '{{ .ProjectName }}_v{{ .Version }}'
 archives:
-- format: zip
+- formats: [zip]
   name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
 checksum:
   extra_files:
@@ -49,4 +55,4 @@ release:
   # If you want to manually examine the release before its live, uncomment this line:
   # draft: true
 changelog:
-  skip: true
+  disable: true
