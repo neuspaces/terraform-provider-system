@@ -211,7 +211,13 @@ func hostKeyPolicyDiagnostics(c *Schema) diag.Diagnostics {
 		}}
 	}
 
+	// A security warning is read and trusted only if it reads like finished prose, and the number of
+	// missing places is not known until here
 	missingList := strings.Join(missing, " and ")
+	areNotSet, identities, setThem, connections := "is not set", "the identity of that ssh server is not verified", "Set it", "the connection"
+	if len(missing) > 1 {
+		areNotSet, identities, setThem, connections = "are not set", "the identities of those ssh servers are not verified", "Set them", "the connections"
+	}
 
 	if c.InsecureIgnoreHostKeyFromEnv {
 		// The configuration gives no hint that host key verification is disabled, so name the
@@ -219,18 +225,19 @@ func hostKeyPolicyDiagnostics(c *Schema) diag.Diagnostics {
 		return diag.Diagnostics{{
 			Severity: diag.Warning,
 			Summary:  fmt.Sprintf("%s by the environment variable %s", hostKeyDisabledSummary, SchemaEnvInsecureIgnoreHostKey),
-			Detail: fmt.Sprintf("The environment variable `%[1]s` sets `%[2]s` to `true` and %[3]s is not set: "+
-				"the identity of that ssh server is not verified. The provider configuration does not show this. "+
-				"Unset `%[1]s` and set %[3]s to protect the connection against man-in-the-middle attacks.",
-				SchemaEnvInsecureIgnoreHostKey, SchemaAttrInsecureIgnoreHostKey, missingList),
+			Detail: fmt.Sprintf("The environment variable `%[1]s` sets `%[2]s` to `true` and %[3]s %[4]s: "+
+				"%[5]s. The provider configuration does not show this. "+
+				"Unset `%[1]s` and set %[3]s to protect %[6]s against man-in-the-middle attacks.",
+				SchemaEnvInsecureIgnoreHostKey, SchemaAttrInsecureIgnoreHostKey, missingList, areNotSet, identities, connections),
 		}}
 	}
 
 	return diag.Diagnostics{{
 		Severity: diag.Warning,
 		Summary:  hostKeyDisabledSummary,
-		Detail: fmt.Sprintf("`%[1]s` is `true` and %[2]s is not set: the identity of that ssh server is not verified. "+
-			"Set it to protect the connection against man-in-the-middle attacks.", SchemaAttrInsecureIgnoreHostKey, missingList),
+		Detail: fmt.Sprintf("`%[1]s` is `true` and %[2]s %[3]s: %[4]s. "+
+			"%[5]s to protect %[6]s against man-in-the-middle attacks.",
+			SchemaAttrInsecureIgnoreHostKey, missingList, areNotSet, identities, setThem, connections),
 	}}
 }
 
