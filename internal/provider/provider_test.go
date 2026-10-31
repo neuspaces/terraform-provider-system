@@ -119,6 +119,32 @@ func TestProvider_Configure_hostKeyPolicy(t *testing.T) {
 		require.NotContains(t, diags[0].Detail, "in the `ssh` block")
 	})
 
+	// Two missing places must not read "X and Y is not set": a security warning which reads like a
+	// draft invites the reader to dismiss it
+	t.Run("warning about two missing host keys agrees in number", func(t *testing.T) {
+		diags := configure(t, map[string]interface{}{
+			"ssh":                      sshBlock(""),
+			"proxy":                    []interface{}{map[string]interface{}{"ssh": sshBlock("")}},
+			"insecure_ignore_host_key": true,
+		})
+		require.False(t, diags.HasError())
+		require.Len(t, diags, 1)
+		require.Contains(t, diags[0].Detail, "are not set")
+		require.Contains(t, diags[0].Detail, "the identities of those ssh servers are not verified")
+		require.Contains(t, diags[0].Detail, "Set them to protect the connections")
+		require.NotContains(t, diags[0].Detail, "is not set")
+	})
+
+	t.Run("warning about one missing host key agrees in number", func(t *testing.T) {
+		diags := configure(t, map[string]interface{}{"ssh": sshBlock(""), "insecure_ignore_host_key": true})
+		require.False(t, diags.HasError())
+		require.Len(t, diags, 1)
+		require.Contains(t, diags[0].Detail, "is not set")
+		require.Contains(t, diags[0].Detail, "the identity of that ssh server is not verified")
+		require.Contains(t, diags[0].Detail, "Set it to protect the connection")
+		require.NotContains(t, diags[0].Detail, "are not set")
+	})
+
 	t.Run("connection block without host_key is refused", func(t *testing.T) {
 		diags := configure(t, map[string]interface{}{"connection": []interface{}{map[string]interface{}{
 			"host": "127.0.0.1", "port": 22, "user": "root", "password": "secret",
