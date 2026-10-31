@@ -35,7 +35,7 @@ func resourceFolder() *schema.Resource {
 		DeleteContext: resourceFolderDelete,
 
 		Importer: &schema.ResourceImporter{
-			StateContext: schema.ImportStatePassthroughContext,
+			StateContext: resourceFolderImportState,
 		},
 
 		SchemaVersion: 1,
@@ -94,13 +94,21 @@ func resourceFolder() *schema.Resource {
 				Computed:    true,
 			},
 			resourceFolderAttrOverwrite: {
-				Description: fmt.Sprintf("If `true`, an existing folder at `%[1]s` is adopted when the resource is created: its permissions and ownership are set from this resource instead of failing with `folder path exists`. Any other kind of entry at `%[1]s` (for example a regular file) still fails. Has no effect once the resource exists and is not read back from the remote system. Defaults to `false`.", resourceFolderAttrPath),
+				Description: fmt.Sprintf("If `true`, an existing folder at `%[1]s` is adopted when the resource is created: its permissions and ownership are set from this resource instead of failing with `folder path exists`. Any other kind of entry at `%[1]s` still fails, including a regular file and a symbolic link, even when the link points to a folder. Has no effect once the resource exists and is not read back from the remote system. Defaults to `false`.", resourceFolderAttrPath),
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     false,
 			},
 		},
 	}
+}
+
+func resourceFolderImportState(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	// `overwrite` is a create-time flag which is not read back from the remote system;
+	// set it to its schema default so that imported state matches a configuration which omits it
+	_ = d.Set(resourceFolderAttrOverwrite, false)
+
+	return schema.ImportStatePassthroughContext(ctx, d, m)
 }
 
 func resourceFolderGetResourceData(d *schema.ResourceData) (*client.Folder, diag.Diagnostics) {

@@ -121,7 +121,9 @@ func (c *folderClient) Create(ctx context.Context, f Folder) error {
 	existsGuard := `[ ! -e "${path}" ]`
 	if f.Overwrite {
 		// Proceed if the path is absent or a directory; refuse any other entry (e.g. a regular file) to avoid overwriting the wrong thing
-		existsGuard = `[ ! -e "${path}" ] || [ -d "${path}" ]`
+		// Adopt only a directory that is not a symbolic link: `-e`/`-d` follow links, so a link
+		// (including a dangling one) would redirect the change to its target
+		existsGuard = `[ ! -L "${path}" ] && { [ ! -e "${path}" ] || [ -d "${path}" ]; }`
 	}
 
 	cmd := NewCommand(fmt.Sprintf(`_do() { path=$1; %[4]s || return %[2]d; { %[3]s; } || return 1; }; _do '%[1]s';`, f.Path, codeFolderPathExists, CompositeCommand(createCmds).Command(), existsGuard))

@@ -215,7 +215,9 @@ func (c *fileClient) Create(ctx context.Context, f File) error {
 	existsGuard := `[ ! -e "${path}" ]`
 	if f.Overwrite {
 		// Proceed if the path is absent or a regular file; refuse any other entry (e.g. a directory) to avoid overwriting the wrong thing
-		existsGuard = `[ ! -e "${path}" ] || [ -f "${path}" ]`
+		// Adopt only a regular file that is not a symbolic link: `-e`/`-f` follow links, so a link
+		// (including a dangling one) would redirect the write to its target
+		existsGuard = `[ ! -L "${path}" ] && { [ ! -e "${path}" ] || [ -f "${path}" ]; }`
 	}
 
 	cmd := NewInputCommand(fmt.Sprintf(`_do() { path=$1; %[4]s || return %[2]d; { %[3]s; } || return 1; }; _do '%[1]s';`, f.Path, codeFilePathExists, CompositeCommand(createCmds).Command(), existsGuard), createCmdIn)

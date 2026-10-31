@@ -1092,3 +1092,77 @@ func TestAccFile_update_source_removed(t *testing.T) {
 		})
 	})
 }
+
+func TestAccFile_overwrite_fail_symlink(t *testing.T) {
+	testConfig := newTestFileConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+		filePath := testRunFilePath(target, testConfig.fileName)
+		linkTargetPath := filePath + ".target"
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					PreConfig: func() {
+						// `path` is a symbolic link to a regular file elsewhere; `[ -e ]` and `[ -f ]` follow the link,
+						// so without an explicit check for a link the content would be written to the link target
+						if _, err := testAccFileRemoteSh(target, fmt.Sprintf(`printf 'link target content' > '%[1]s' && ln -s '%[1]s' '%[2]s'`, linkTargetPath, filePath)); err != nil {
+							t.Fatalf("pre-create symlink %s: %v", filePath, err)
+						}
+					},
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("test", filePath,
+							tfbuild.AttributeString("mode", "600"),
+							tfbuild.AttributeString("content", "must not be written"),
+							tfbuild.AttributeBool("overwrite", true),
+						),
+					)),
+					ExpectError: regexp.MustCompile(`file resource\s+file exists`),
+				},
+			},
+		})
+
+		// the link target must be untouched: nothing may be written through the symbolic link
+		if err := testAccCheckRemoteFileContent(target, linkTargetPath, "link target content")(nil); err != nil {
+			t.Error(err)
+		}
+	})
+}
+
+func TestAccFile_update_content_to_content_sensitive(t *testing.T) {
+	testConfig := newTestFileConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+		filePath := testRunFilePath(target, testConfig.fileName)
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("test", filePath, tfbuild.AttributeString("content", "hello world!")),
+					)),
+					// echo -n 'hello world!' | openssl dgst -binary -md5 | openssl base64
+					Check: resource.TestCheckResourceAttr("system_file.test", "md5sum", "/D/5joxqDTCH1RXARz+Gdw=="),
+				},
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("test", filePath, tfbuild.AttributeString("content_sensitive", "hello s3cr3t!")),
+					)),
+					Check: resource.ComposeTestCheckFunc(
+						// echo -n 'hello s3cr3t!' | openssl dgst -binary -md5 | openssl base64
+						resource.TestCheckResourceAttr("system_file.test", "md5sum", "su6hNsFeImKJgWRpqtfzZw=="),
+						resource.TestCheckResourceAttr("system_file.test", "content", ""),
+						testAccCheckRemoteFileContent(target, filePath, "hello s3cr3t!"),
+					),
+				},
+			},
+		})
+	})
+}

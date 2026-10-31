@@ -179,3 +179,44 @@ func TestAccFolder_overwrite_fail_type_mismatch(t *testing.T) {
 		})
 	})
 }
+
+func TestAccFolder_overwrite_fail_symlink(t *testing.T) {
+	testConfig := newTestFolderConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+		folderPath := testRunFolderPath(target, testConfig.folderName)
+		linkTargetPath := folderPath + ".target"
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					PreConfig: func() {
+						// `path` is a symbolic link to a folder elsewhere; `[ -e ]` and `[ -d ]` follow the link,
+						// so without an explicit check for a link the permissions of the link target would be changed
+						if _, err := testAccFileRemoteSh(target, fmt.Sprintf(`mkdir -m 755 '%[1]s' && touch '%[1]s/keep' && ln -s '%[1]s' '%[2]s'`, linkTargetPath, folderPath)); err != nil {
+							t.Fatalf("pre-create symlink %s: %v", folderPath, err)
+						}
+					},
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFolderBlock("test", folderPath,
+							tfbuild.AttributeString("mode", "700"),
+							tfbuild.AttributeBool("overwrite", true),
+						),
+					)),
+					ExpectError: regexp.MustCompile(`folder resource\s+folder path exists`),
+				},
+			},
+		})
+
+		// the link target must be untouched: neither its permissions nor its content may be changed through the link
+		out, err := testAccFileRemoteSh(target, fmt.Sprintf(`stat -c %%a '%[1]s'; ls '%[1]s'`, linkTargetPath))
+		if err != nil {
+			t.Error(err)
+		} else if out != "755\nkeep" {
+			t.Errorf("expected link target %s to keep mode 755 and its content, got: %q", linkTargetPath, out)
+		}
+	})
+}

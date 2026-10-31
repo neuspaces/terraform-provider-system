@@ -204,7 +204,7 @@ func resourceFile() *schema.Resource {
 				Computed:    true,
 			},
 			resourceFileAttrOverwrite: {
-				Description: fmt.Sprintf("If `true`, an existing regular file at `%[1]s` is adopted when the resource is created: its content, permissions and ownership are set from this resource instead of failing with `file exists`. Any other kind of entry at `%[1]s` (for example a directory) still fails. Has no effect once the resource exists and is not read back from the remote system. Defaults to `false`.", resourceFileAttrPath),
+				Description: fmt.Sprintf("If `true`, an existing regular file at `%[1]s` is adopted when the resource is created: its content (when `%[2]s`, `%[3]s` or `%[4]s` is set), permissions and ownership are set from this resource instead of failing with `file exists`. Any other kind of entry at `%[1]s` still fails, including a directory and a symbolic link, even when the link points to a regular file. Has no effect once the resource exists and is not read back from the remote system. Defaults to `false`.", resourceFileAttrPath, resourceFileAttrContent, resourceFileAttrContentSensitive, resourceFileAttrSource),
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     false,
