@@ -32,13 +32,9 @@ func NewTestServer(t *testing.T, opts ...ServerOption) *TestServer {
 // Use ensure that the underlying Server is started before scopeFunc and shutdown afterwards.
 // Use sets the environment variable SSH_AUTH_SOCK within the scopeFunc
 func (s *TestServer) Use(t *testing.T, scopeFunc func(t *testing.T)) {
-	var err error
-
 	// Prepare context
 	ctx, agentShutdown := context.WithCancel(context.Background())
-	defer func() {
-		agentShutdown()
-	}()
+	defer agentShutdown()
 
 	// Start listening
 	listener, err := s.server.Listen()
@@ -46,12 +42,10 @@ func (s *TestServer) Use(t *testing.T, scopeFunc func(t *testing.T)) {
 		t.Fatal(err)
 	}
 
-	// Start serving
+	// Start serving; the result is collected after the scope has run because testing.T must not be used from another goroutine
+	serveErr := make(chan error, 1)
 	go func() {
-		err = s.server.Serve(ctx, listener)
-		if err != nil {
-			t.Fatal(err)
-		}
+		serveErr <- s.server.Serve(ctx, listener)
 	}()
 
 	// Mutex on SSH_AUTH_SOCK; only a single thread may set SSH_AUTH_SOCK
@@ -67,11 +61,16 @@ func (s *TestServer) Use(t *testing.T, scopeFunc func(t *testing.T)) {
 	// Run scoped func
 	scopeFunc(t)
 
-	// Stop agent server
+	// Stop agent server and surface shutdown errors in the test goroutine
 	agentShutdown()
+	if err := <-serveErr; err != nil {
+		t.Error(err)
+	}
 
 	// Pop SSH_AUTH_SOCK
 	if hasPrevSshAuthSock {
 		_ = os.Setenv(EnvVarSshAuthSock, prevSshAuthSock)
+	} else {
+		_ = os.Unsetenv(EnvVarSshAuthSock)
 	}
 }

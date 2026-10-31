@@ -2,13 +2,15 @@ name: build-fedora-test-container
 
 on:
   push:
-    # Push events on main branch
+    # Push events on main and development branches
     branches:
       - main
+      - development
     # Changes inside test/fedora
     paths:
       - '.github/workflows/build-fedora-test-container.yml'
       - 'test/fedora/**'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,42 +18,40 @@ permissions:
 
 env:
   IMAGE_REGISTRY: ghcr.io
-  # ghcr.io/neuspaces/terraform-provider-system/fedora-acctest
-  IMAGE_NAME: ghcr.io/${{ github.repository }}/fedora-acctest
   IMAGE_BUILD_CONTEXT: ./test/fedora/docker
 
 jobs:
   default:
     name: Build/push image
-    if: github.repository == 'neuspaces/terraform-provider-system'
+    if: github.repository == 'Dorokhovich-COM/terraform-provider-system'
 
-    runs-on: ubuntu-22.04
-  
+    runs-on: ubuntu-latest
+
     steps:
-      - 
-        name: Checkout sources
-        uses: actions/checkout@v4.1.6
-      
-      - 
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - # The image name must be lowercase; github.repository contains uppercase characters
+        # and would produce an invalid docker tag.
+        # ghcr.io/dorokhovich-com/terraform-provider-system/fedora-acctest
         name: Context variables
         id: vars
         run: |
-          echo "short_sha=${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
+          echo "short_sha=${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
+          echo "image_name=ghcr.io/${GITHUB_REPOSITORY,,}/fedora-acctest" >> "$GITHUB_OUTPUT"
 
-      -
-        name: Login to GitHub Container Registry
-        uses: docker/login-action@v3.2.0
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.IMAGE_REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
-      - 
-        name: Build and push image
-        uses: docker/build-push-action@v3.2.0
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
         with:
           push: true
           context: ${{ env.IMAGE_BUILD_CONTEXT }}
           file: ${{ env.IMAGE_BUILD_CONTEXT }}/Dockerfile
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.short_sha }}
+            ${{ steps.vars.outputs.image_name }}:${{ steps.vars.outputs.short_sha }}
