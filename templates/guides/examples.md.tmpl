@@ -7,4 +7,4 @@ description: |-
 
 # Examples
 
-A comprehensive set of usage examples is available in the [`examples/` folder in the provider repository](https://github.com/neuspaces/terraform-provider-system/tree/main/examples).
+A comprehensive set of usage examples is available in the [`examples/` folder in the provider repository](https://github.com/Dorokhovich-COM/terraform-provider-system/tree/main/examples).

@@ -7,7 +7,7 @@ description: |-
 
 # FAQ
 
-This page answers frequently asked questions. If questions you encountered remain open, feel invited to ask them in the [Q&A forum](https://github.com/neuspaces/terraform-provider-system/discussions/categories/q-a).
+This page answers frequently asked questions. If questions you encountered remain open, feel invited to ask them as a [question issue on GitHub](https://github.com/Dorokhovich-COM/terraform-provider-system/issues/new?assignees=&labels=question&template=question.md).
 
 ## Why is the provider called *system*?
 
@@ -53,10 +53,10 @@ Refer to the page on [supported systems](./supported-systems).
 
 ## How do I report a bug or submit a feature request?
 
-Bugs and feature requests are managed in [GitHub issues](https://github.com/neuspaces/terraform-provider-system/issues).
+Bugs and feature requests are managed in [GitHub issues](https://github.com/Dorokhovich-COM/terraform-provider-system/issues).
 
-If you encountered a bug or if you have a feature in mind, search in the [open issues on GitHub](https://github.com/neuspaces/terraform-provider-system/issues) for similar reports or requests.
+If you encountered a bug or if you have a feature in mind, search in the [open issues on GitHub](https://github.com/Dorokhovich-COM/terraform-provider-system/issues) for similar reports or requests.
 
-If you discovered a new bug, open a [bug issue on GitHub](https://github.com/neuspaces/terraform-provider-system/issues/new?assignees=&labels=bug&template=bug.md).
+If you discovered a new bug, open a [bug issue on GitHub](https://github.com/Dorokhovich-COM/terraform-provider-system/issues/new?assignees=&labels=bug&template=bug.md).
 
-If you want to share a feature request, open an [enhancement issue on GitHub](https://github.com/neuspaces/terraform-provider-system/issues/new?assignees=&labels=bug&template=enhancement.md).
+If you want to share a feature request, open an [enhancement issue on GitHub](https://github.com/Dorokhovich-COM/terraform-provider-system/issues/new?assignees=&labels=enhancement&template=enhancement.md).
