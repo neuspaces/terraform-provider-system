@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     system = {
-      source = "neuspaces/system"
+      source = "dorokhovich-com/system"
     }
   }
 }
@@ -12,6 +12,9 @@ provider "system" {
     port        = 22
     user        = "root"
     private_key = file("./root.key")
+
+    # ssh-keyscan -t ed25519 example.host.local > host_key.pub
+    host_key = file("./host_key.pub")
   }
 }
 

@@ -4,6 +4,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 	"github.com/neuspaces/terraform-provider-system/internal/acctest/tfbuild"
 	"github.com/neuspaces/terraform-provider-system/internal/provider"
+	"strings"
 )
 
 // ProviderConfigBlock is currently an alias for ProviderConfigBlockSshPasswordAuth
@@ -12,6 +13,10 @@ func ProviderConfigBlock(c ConfigTargetConfig) tfbuild.FileElement {
 		tfbuild.AttributeString(provider.SchemaAttrSshHost, c.Ssh.Host),
 		tfbuild.AttributeInt(provider.SchemaAttrSshPort, int64(c.Ssh.Port)),
 		tfbuild.AttributeString(provider.SchemaAttrSshUser, c.Ssh.User),
+	}
+
+	if c.Ssh.HostKey != "" {
+		sshAttrs = append(sshAttrs, tfbuild.AttributeString(provider.SchemaAttrSshHostKey, strings.TrimSpace(c.Ssh.HostKey)))
 	}
 
 	if c.Ssh.Password != "" {
@@ -29,13 +34,19 @@ func ProviderConfigBlock(c ConfigTargetConfig) tfbuild.FileElement {
 
 // ProviderConfigBlockSshPasswordAuth returns a provider configuration which uses ssh password authentication
 func ProviderConfigBlockSshPasswordAuth(c ConfigTargetConfig) tfbuild.FileElement {
+	sshAttrs := []tfbuild.BlockElement{
+		tfbuild.AttributeString(provider.SchemaAttrSshHost, c.Ssh.Host),
+		tfbuild.AttributeInt(provider.SchemaAttrSshPort, int64(c.Ssh.Port)),
+		tfbuild.AttributeString(provider.SchemaAttrSshUser, c.Ssh.User),
+		tfbuild.AttributeString(provider.SchemaAttrSshPassword, c.Ssh.Password),
+	}
+
+	if c.Ssh.HostKey != "" {
+		sshAttrs = append(sshAttrs, tfbuild.AttributeString(provider.SchemaAttrSshHostKey, strings.TrimSpace(c.Ssh.HostKey)))
+	}
+
 	return tfbuild.Provider(provider.Name,
-		tfbuild.InnerBlock(provider.SchemaAttrSsh,
-			tfbuild.AttributeString(provider.SchemaAttrSshHost, c.Ssh.Host),
-			tfbuild.AttributeInt(provider.SchemaAttrSshPort, int64(c.Ssh.Port)),
-			tfbuild.AttributeString(provider.SchemaAttrSshUser, c.Ssh.User),
-			tfbuild.AttributeString(provider.SchemaAttrSshPassword, c.Ssh.Password),
-		),
+		tfbuild.InnerBlock(provider.SchemaAttrSsh, sshAttrs...),
 	)
 }
 
@@ -44,6 +55,10 @@ func ProviderResourceConfig(c ConfigTargetConfig) *terraform.ResourceConfig {
 		provider.SchemaAttrSshHost: c.Ssh.Host,
 		provider.SchemaAttrSshPort: c.Ssh.Port,
 		provider.SchemaAttrSshUser: c.Ssh.User,
+	}
+
+	if c.Ssh.HostKey != "" {
+		sshAttrs[provider.SchemaAttrSshHostKey] = strings.TrimSpace(c.Ssh.HostKey)
 	}
 
 	if c.Ssh.Password != "" {
