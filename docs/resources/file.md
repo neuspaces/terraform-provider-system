@@ -110,7 +110,7 @@ resource "system_file" "ownership_id" {
 
 ### Adopt an existing file
 
-By default, `system_file` fails to create the resource if a file already exists at `path`. Set `overwrite` to `true` to instead adopt the existing file: its content, permissions and ownership are set from this resource.
+By default, `system_file` fails to create the resource if a file already exists at `path`. Set `overwrite` to `true` to instead adopt the existing file: its content (when `content`, `content_sensitive` or `source` is set), permissions and ownership are set from this resource.
 
 ```terraform
 resource "system_file" "overwrite" {
@@ -121,7 +121,7 @@ resource "system_file" "overwrite" {
 }
 ```
 
-If the existing entry at `path` is not a regular file (for example a directory), the resource still fails to avoid silently overwriting the wrong kind of entry.
+If the existing entry at `path` is not a regular file (for example a directory or a symbolic link), the resource still fails to avoid silently overwriting the wrong kind of entry.
 
 ### Local file source
 
@@ -161,7 +161,7 @@ This section describes general notes for using the `system_file` resource.
 - Changes to the content are detected via an MD5 checksum comparison
 - File content is transferred from the client to the remote when the resource is created or the content has changed
 - Changing the file referenced by `source` (detected via its etag) updates the remote file in place. Releases before v0.6.0 replaced the resource (delete and create) instead, leaving a window in which the file did not exist on the remote system
-- With `overwrite = true`, the check for an existing regular file follows symbolic links: a symbolic link to a regular file is accepted and the content is written to the link target
+- With `overwrite = true`, a symbolic link at `path` is refused with `file exists`, even when it points to a regular file: content is never written through a link into another path
 - The `overwrite` attribute only affects resource creation; it has no effect on subsequent updates and is not read back from the remote system
 - Transferred file content is compressed using gzip between client and remote
 
@@ -179,7 +179,7 @@ This section describes general notes for using the `system_file` resource.
 - `gid` (Number) ID of the group that owns the file
 - `group` (String) Name of the group that owns the file
 - `mode` (String) Permissions of the file in octal format like `755`. Defaults to the umask of the system.
-- `overwrite` (Boolean) If `true`, an existing regular file at `path` is adopted when the resource is created: its content, permissions and ownership are set from this resource instead of failing with `file exists`. Any other kind of entry at `path` (for example a directory) still fails. Has no effect once the resource exists and is not read back from the remote system. Defaults to `false`.
+- `overwrite` (Boolean) If `true`, an existing regular file at `path` is adopted when the resource is created: its content (when `content`, `content_sensitive` or `source` is set), permissions and ownership are set from this resource instead of failing with `file exists`. Any other kind of entry at `path` still fails, including a directory and a symbolic link, even when the link points to a regular file. Has no effect once the resource exists and is not read back from the remote system. Defaults to `false`.
 - `source` (String) Path to a local file to upload as the file. Mutually exclusive with attributes `content` and `content_sensitive`. Changing the referenced content (detected by its etag) updates the remote file in place.
 - `uid` (Number) ID of the user who owns the file
 - `user` (String) Name of the user who owns the file
