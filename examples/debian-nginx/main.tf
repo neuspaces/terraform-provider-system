@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     system = {
-      source = "neuspaces/system"
+      source = "dorokhovich-com/system"
     }
   }
 }
