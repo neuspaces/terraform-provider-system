@@ -3,139 +3,164 @@ name: main
 on:
   push:
     paths-ignore:
-      - '.github/workflows/test-*'
-      - 'test/alpine/**'
-      - 'test/debian/**'
-      - 'test/fedora/**'
       - 'README.md'
+      - 'NOTICE'
+      - 'CHANGELOG.md'
+      - 'docs/superpowers/**'
   pull_request:
   workflow_dispatch:
-    
+
+permissions:
+  contents: read
+
+concurrency:
+  group: main-${{ github.ref }}
+  # Never cancel a tag run: the release job must complete
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 jobs:
   build:
     name: Build
-
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
-      -
-        name: Checkout
-        uses: actions/checkout@v4.1.6
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      -
-        name: Set up Go
-        uses: actions/setup-go@v5.0.1
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.22.3'
-      
-      - 
-        name: Check Go format
-        run: |
-          gofmtout=$(gofmt -l .); [ -z "${gofmtout}" ] || { echo "Detected malformatted go files. Run 'go fmt ./..." >&2; echo $gofmtout; exit 1; }
-      
-      -
-        name: Get dependencies
-        run: |
-          go mod download
+          go-version-file: go.mod
+          check-latest: true
 
-      - 
-        name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3.1.1
+      - name: Check Go format
+        run: |
+          gofmtout=$(gofmt -l .); [ -z "${gofmtout}" ] || { echo "Detected malformatted go files. Run 'gofmt -w .'" >&2; echo "${gofmtout}"; exit 1; }
+
+      - name: Get dependencies
+        run: go mod download
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.6.3"
+          terraform_version: "1.14.9"
+          terraform_wrapper: false
 
-      - 
-        name: Verify generated files
+      - name: Verify generated files
         run: |
-          go generate ./...;
+          go generate ./...
           git diff --compact-summary --exit-code || (echo; echo "Unexpected difference in directories after code generation. Run 'go generate ./...' command and commit."; exit 1)
 
-      -
-        name: Build
-        run: |
-          go build -v .
-      
-      -
-        name: Run unit tests
-        run: |
-          go test -v ./...
-  
-  acctest:
-    name: Acceptance test (${{ matrix.target.name }})
-    
-    needs: build
-    runs-on: ubuntu-22.04
-    timeout-minutes: 15
+      - name: Build
+        run: go build -v .
 
-    permissions:
-      contents: read
-      packages: read
+      - name: Run unit tests
+        run: go test -v ./...
+
+  govulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+
+      # Fails on vulnerabilities which are reachable from this module. Vulnerabilities in
+      # imported packages and required modules which the provider does not call are printed
+      # by `-show=verbose` and do not fail the job.
+      - name: Run govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 -show=verbose ./...
+
+  acctest:
+    name: Acceptance test (${{ matrix.target.name }}, ${{ matrix.cli.tool }} ${{ matrix.cli.version }})
+
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     strategy:
       fail-fast: false
       matrix:
         target:
-          - 
-            name: alpine
-            image: ghcr.io/neuspaces/terraform-provider-system/alpine-acctest
-            image_tag: 13cdac2
+          - name: alpine
             test_path: test/alpine
             host_port: 10022
             private_key_file: root-ed25519
             extra_run_args: --tmpfs /tmp --tmpfs /run -v /sys/fs/cgroup:/sys/fs/cgroup:ro
-          - 
-            name: debian
-            image: ghcr.io/neuspaces/terraform-provider-system/debian-acctest
-            image_tag: 560b08f
+          - name: debian
             test_path: test/debian
             host_port: 11022
             private_key_file: root-ed25519
             extra_run_args: --tmpfs /tmp --tmpfs /run --tmpfs /run/lock --mount type=bind,source=/sys/fs/cgroup,target=/sys/fs/cgroup --cgroupns=host
-          - 
-            name: fedora
-            image: ghcr.io/neuspaces/terraform-provider-system/fedora-acctest
-            image_tag: e3d717a
+          - name: fedora
             test_path: test/fedora
             host_port: 12022
             private_key_file: root-ed25519
             extra_run_args: --tmpfs /tmp --tmpfs /run --tmpfs /run/lock --mount type=bind,source=/sys/fs/cgroup,target=/sys/fs/cgroup --cgroupns=host
-        terraform_version:
-          # - '0.14.11'
-          # - '0.15.5'
-          # - '1.0.7'
-          # - '1.1.7'
-          # - '1.1.9'
-          # - '1.2.8'
-          - '1.6.3'
-    
+        cli:
+          # minimum supported Terraform version
+          - tool: terraform
+            version: "1.6.6"
+          # last Terraform line without write-only attributes
+          - tool: terraform
+            version: "1.10.5"
+          # first Terraform line with write-only attributes
+          - tool: terraform
+            version: "1.11.4"
+          # current Terraform line
+          - tool: terraform
+            version: "1.14.9"
+          # first OpenTofu release of the 1.6 line
+          - tool: tofu
+            version: "1.6.0"
+          # current OpenTofu line
+          - tool: tofu
+            version: "1.13.2"
+
     steps:
-      -
-        name: Checkout
-        uses: actions/checkout@v4.1.6
-      
-      - 
-        name: Context variables
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Context variables
         id: vars
         run: |
-          echo "os_container_name=terraform-provider-system-${{ matrix.target.name }}-${{ github.run_id }}" >> $GITHUB_OUTPUT
-      
-      -
-        name: Set up Go
-        uses: actions/setup-go@v5.0.1
-        with:
-          go-version: '1.22.3'
+          echo "os_container_name=terraform-provider-system-${{ matrix.target.name }}-${{ github.run_id }}" >> "$GITHUB_OUTPUT"
 
-      -
-        name: Login to GitHub Container Registry
-        uses: docker/login-action@v3.2.0
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          go-version-file: go.mod
+          check-latest: true
 
-      -
-        # Note: services cannot be used for the purpose of running the test os container because, required files from the repository checkout are not available at the time the service containers are started
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # The test container image is built in the job. The images published by
+      # upstream (ghcr.io/neuspaces/terraform-provider-system/*-acctest) are not
+      # accessible from this repository.
+      - name: Build ${{ matrix.target.name }} test container image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.target.test_path }}/docker
+          file: ${{ matrix.target.test_path }}/docker/Dockerfile
+          push: false
+          load: true
+          tags: terraform-provider-system-${{ matrix.target.name }}:ci
+          cache-from: type=gha,scope=${{ matrix.target.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target.name }}
+
+      - # Note: services cannot be used for the purpose of running the test os container because, required files from the repository checkout are not available at the time the service containers are started
         name: Start ${{ matrix.target.name }} container
         id: start_os_container
         run: >
@@ -152,77 +177,91 @@ jobs:
           --mount type=bind,source=${{ github.workspace }}/${{ matrix.target.test_path }}/${{ matrix.target.private_key_file }}.pub,target=/etc/authorized_keys/root,readonly
           --mount type=bind,source=${{ github.workspace }}/${{ matrix.target.test_path }}/hostkeys,target=/etc/ssh/keys
           ${{ matrix.target.extra_run_args }}
-          ${{ matrix.target.image }}:${{ matrix.target.image_tag }}
+          terraform-provider-system-${{ matrix.target.name }}:ci
 
-      - 
-        name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3.1.1
+      - name: Setup Terraform
+        if: matrix.cli.tool == 'terraform'
+        uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: ${{ matrix.terraform_version }}
+          terraform_version: ${{ matrix.cli.version }}
+          terraform_wrapper: false
 
-      -
-        name: Run acceptance tests
+      - name: Setup OpenTofu
+        if: matrix.cli.tool == 'tofu'
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ matrix.cli.version }}
+          tofu_wrapper: false
+
+      # TF_ACC_PROVIDER_HOST must match the registry host of the CLI under test. The
+      # SDKv2 helper/resource builds the reattach provider address from it; with the
+      # Terraform default OpenTofu does not find the provider.
+      - name: Resolve CLI path
+        id: cli
+        run: |
+          echo "path=$(command -v '${{ matrix.cli.tool }}')" >> "$GITHUB_OUTPUT"
+          if [ '${{ matrix.cli.tool }}' = 'tofu' ]; then
+            echo "provider_host=registry.opentofu.org" >> "$GITHUB_OUTPUT"
+          else
+            echo "provider_host=registry.terraform.io" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run acceptance tests
         env:
           TF_ACC: "1"
           TF_LOG: "DEBUG"
-          TF_ACC_TERRAFORM_PATH: ${{ steps.terraform_cli.outputs.path }}
+          TF_ACC_TERRAFORM_PATH: ${{ steps.cli.outputs.path }}
+          TF_ACC_PROVIDER_HOST: ${{ steps.cli.outputs.provider_host }}
           TF_ACC_PROVIDER_SYSTEM_TARGETS: ${{ matrix.target.name }}
-        run: |
-          go test -v ./internal/provider/
+        run: go test -count=1 -timeout 25m -v ./internal/provider/
 
-      -
-        name: Logs of ${{ matrix.target.name }} container
+      - name: Logs of ${{ matrix.target.name }} container
         if: ${{ always() && steps.start_os_container.outcome == 'success' }}
         continue-on-error: true
-        run: >
-          docker logs '${{ steps.vars.outputs.os_container_name }}'
+        run: docker logs '${{ steps.vars.outputs.os_container_name }}'
 
-      -
-        name: Stop ${{ matrix.target.name }} container
+      - name: Stop ${{ matrix.target.name }} container
         if: ${{ always() && steps.start_os_container.outcome == 'success' }}
         continue-on-error: true
-        run: >
-          docker stop --time 30 '${{ steps.vars.outputs.os_container_name }}'
+        run: docker stop --time 30 '${{ steps.vars.outputs.os_container_name }}'
 
   release:
     name: Release
-    
-    # only on push events and if commit has version tag
-    if: ${{ github.repository == 'neuspaces/terraform-provider-system' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
 
-    needs: acctest
-    runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    # only on push events and if commit has version tag
+    if: ${{ github.repository == 'Dorokhovich-COM/terraform-provider-system' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+
+    needs: [acctest, govulncheck]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: write
 
     steps:
-      -
-        name: Checkout
-        uses: actions/checkout@v4.1.6
-
-      -
-        name: Unshallow
-        run: git fetch --prune --unshallow
-
-      -
-        name: Set up Go
-        uses: actions/setup-go@v5.0.1
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          go-version: '1.22.3'
+          fetch-depth: 0
 
-      -
-        name: Import GPG private key
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+
+      - name: Import GPG private key
         id: import_gpg_private_key
-        uses: neuspaces/gpg-key-action@v6.1.0
+        uses: crazy-max/ghaction-import-gpg@v6
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
-      
-      -
-        name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v2.9.1
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
         with:
-          version: latest
-          args: release --rm-dist
+          version: '~> v2'
+          args: release --clean
         env:
           GPG_FINGERPRINT: ${{ steps.import_gpg_private_key.outputs.fingerprint }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
