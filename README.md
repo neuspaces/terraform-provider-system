@@ -1,20 +1,23 @@
 # Terraform Provider for (Operating) System
 
-[![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/neuspaces/terraform-provider-system)](https://github.com/neuspaces/terraform-provider-system/releases)
-[![main](https://github.com/neuspaces/terraform-provider-system/actions/workflows/main.yml/badge.svg)](https://github.com/neuspaces/terraform-provider-system/actions/workflows/main.yml)
-[![GitHub Discussions](https://img.shields.io/github/discussions/neuspaces/terraform-provider-system)](https://github.com/neuspaces/terraform-provider-system/discussions)
-[![GitHub License](https://img.shields.io/github/license/neuspaces/terraform-provider-system)](https://github.com/neuspaces/terraform-provider-system/blob/main/LICENSE)
-[![Terraform Registry](https://img.shields.io/badge/terraform-registry-5c4ee5.svg)](https://registry.terraform.io/providers/neuspaces/system/latest)
+[![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/Dorokhovich-COM/terraform-provider-system)](https://github.com/Dorokhovich-COM/terraform-provider-system/releases)
+[![main](https://github.com/Dorokhovich-COM/terraform-provider-system/actions/workflows/main.yml/badge.svg)](https://github.com/Dorokhovich-COM/terraform-provider-system/actions/workflows/main.yml)
+[![GitHub License](https://img.shields.io/github/license/Dorokhovich-COM/terraform-provider-system)](https://github.com/Dorokhovich-COM/terraform-provider-system/blob/main/LICENSE)
+[![Terraform Registry](https://img.shields.io/badge/terraform-registry-5c4ee5.svg)](https://registry.terraform.io/providers/dorokhovich-com/system/latest)
 
-Releases: [registry.terraform.io](https://registry.terraform.io/providers/neuspaces/system/latest)
+Releases: [registry.terraform.io](https://registry.terraform.io/providers/dorokhovich-com/system/latest)
 
-Documentation: [registry.terraform.io](https://registry.terraform.io/providers/neuspaces/system/latest/docs)
+Documentation: [registry.terraform.io](https://registry.terraform.io/providers/dorokhovich-com/system/latest/docs)
 
-Discuss: [github.com/discussions](https://github.com/neuspaces/terraform-provider-system/discussions)
+Changelog: [CHANGELOG.md](CHANGELOG.md)
 
 The Terraform Provider for (Linux Operating) System allows managing files, directories, users, groups, packages, and services on remote servers on operating system level agent-less via SSH.
 
 > Even in a cloud-native heaven ☁️, there will still be use cases for pets 🐈
+
+## Origin
+
+This provider is a maintained fork of [neuspaces/terraform-provider-system](https://github.com/neuspaces/terraform-provider-system) (v0.5.0, MPL-2.0); see [NOTICE](NOTICE) and the [migration guide](docs/guides/migration-from-neuspaces.md).
 
 ## Highlights
 
@@ -26,7 +29,7 @@ The Terraform Provider for (Linux Operating) System allows managing files, direc
 
 ## Quick Starts
 
-- [Using the provider](https://registry.terraform.io/providers/neuspaces/system/latest/docs)
+- [Using the provider](https://registry.terraform.io/providers/dorokhovich-com/system/latest/docs)
 - [Examples](examples)
 
 ## Use Cases
@@ -40,12 +43,12 @@ The provider is not suitable for *immutable infrastructure* approaches such as f
 
 ## User documentation
 
-Refer to the comprehensive [user documentation of the provider in the Terraform Registry](https://registry.terraform.io/providers/neuspaces/system/latest/docs).
+Refer to the comprehensive [user documentation of the provider in the Terraform Registry](https://registry.terraform.io/providers/dorokhovich-com/system/latest/docs).
 
 ## Frequently Asked Questions
 
-Responses to the most frequently asked questions can be found in the [FAQ](https://registry.terraform.io/providers/neuspaces/system/latest/docs/guides/faq).
+Responses to the most frequently asked questions can be found in the [FAQ](https://registry.terraform.io/providers/dorokhovich-com/system/latest/docs/guides/faq).
 
 ## Requirements
 
-- [Terraform](https://www.terraform.io/downloads.html) 0.12+
+- [Terraform](https://www.terraform.io/downloads.html) 1.6+ or [OpenTofu](https://opentofu.org/docs/intro/install/) 1.6+

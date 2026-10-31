@@ -1,0 +1,18 @@
+terraform-provider-system
+Copyright (c) 2022-2024 neuspaces (original work)
+Copyright (c) 2026 Dorokhovich-COM (modifications)
+
+This project is a fork of https://github.com/neuspaces/terraform-provider-system,
+forked at tag v0.5.0 (commit bf40626e, 2024-05-31) with the full upstream history
+retained. The original work and this fork are licensed under the Mozilla Public
+License, version 2.0; see LICENSE.
+
+Changes made in this fork are recorded in CHANGELOG.md and in the git history.
+The provider is published to the Terraform Registry and the OpenTofu Registry
+under the address dorokhovich-com/system and keeps the resource, data source and
+attribute names of upstream so that users of neuspaces/system can migrate with
+`terraform state replace-provider`; see docs/guides/migration-from-neuspaces.md.
+
+Contributions ported from upstream pull requests:
+- `overwrite` for system_file and system_folder: PR #11 by raynigon
+- `create_home` for system_user: PR #10 by ii1818nn (issue #9)
