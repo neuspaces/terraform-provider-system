@@ -47,7 +47,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.14.9"
+          terraform_version: "1.17.1"
           terraform_wrapper: false
 
       # The runner has no ~/.terraformrc, so tfplugindocs builds the provider into a clean
@@ -57,6 +57,11 @@ jobs:
         run: |
           go generate ./...
           git diff --compact-summary --exit-code || (echo; echo "Unexpected difference in directories after code generation. Run 'go generate ./...' command and commit."; exit 1)
+
+      # Checks the frontmatter and the structure of docs/** against what the Terraform
+      # Registry accepts; `go generate` alone does not catch a rejected document.
+      - name: Validate provider documentation
+        run: go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs validate --provider-name terraform-provider-system
 
       - name: Build
         run: go build -v .
@@ -121,9 +126,12 @@ jobs:
           # first Terraform line with write-only attributes
           - tool: terraform
             version: "1.11.4"
-          # current Terraform line
+          # last Terraform line before the current one
           - tool: terraform
             version: "1.14.9"
+          # current Terraform line
+          - tool: terraform
+            version: "1.17.1"
           # first OpenTofu release of the 1.6 line
           - tool: tofu
             version: "1.6.0"
