@@ -23,7 +23,7 @@ env:
 jobs:
   default:
     name: Build/push image
-    if: github.repository == 'Dorokhovich-COM/terraform-provider-system'
+    if: github.repository == 'neuspaces/terraform-provider-system'
 
     runs-on: ubuntu-latest
 
@@ -33,7 +33,7 @@ jobs:
 
       - # The image name must be lowercase; github.repository contains uppercase characters
         # and would produce an invalid docker tag.
-        # ghcr.io/dorokhovich-com/terraform-provider-system/debian-acctest
+        # ghcr.io/neuspaces/terraform-provider-system/debian-acctest
         name: Context variables
         id: vars
         run: |

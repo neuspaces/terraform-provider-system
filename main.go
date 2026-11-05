@@ -25,7 +25,7 @@ var (
 	// commit  string = ""
 )
 
-const ProviderAddr = "registry.terraform.io/dorokhovich-com/system"
+const ProviderAddr = "registry.terraform.io/neuspaces/system"
 
 func main() {
 	var debugMode bool

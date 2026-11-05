@@ -76,7 +76,7 @@ Refer to the page on [SSH authentication](./guides/ssh-auth) for details and con
 
 ## Host key verification
 
-Since v0.6.0 the provider refuses to connect to a remote whose host key is not configured. Set `host_key` in the `ssh` block (and in `proxy.ssh` for a proxy) to the public key of the server, for example the output of `ssh-keyscan -t ed25519 <host>`. To keep the behavior of releases before v0.6.0 set `insecure_ignore_host_key = true` on the provider; the provider then warns on every run that the connection is not verified. Users of the upstream `neuspaces/system` provider find the details in the [migration guide](./guides/migration-from-neuspaces).
+Since v0.6.0 the provider refuses to connect to a remote whose host key is not configured. Set `host_key` in the `ssh` block (and in `proxy.ssh` for a proxy) to the public key of the server, for example the output of `ssh-keyscan -t ed25519 <host>`. To keep the behavior of releases before v0.6.0 set `insecure_ignore_host_key = true` on the provider; the provider then warns on every run that the connection is not verified.
 
 ## SSH provisioner like configuration
 

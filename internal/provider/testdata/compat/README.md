@@ -1,15 +1,15 @@
-# Upstream compatibility fixtures
+# Released-version compatibility fixtures
 
-These fixtures back `TestAccCompat_upstream_state_empty_plan`
-(`internal/provider/compat_test.go`), the drop-in test of this fork: a state file written by the **upstream
-`neuspaces/system` v0.5.0 binary** must produce an **empty plan** with this provider after the two migration
-operations, which are
-
-1. changing `required_providers.source` from `neuspaces/system` to `dorokhovich-com/system` (the test rewrites it in
-   its copy of `main.tf`), and
-2. `terraform state replace-provider registry.terraform.io/neuspaces/system <host>/dorokhovich-com/system`.
+These fixtures back `TestAccCompat_v050_state_empty_plan` (`internal/provider/compat_test.go`): a state file written
+by the **released `v0.5.0` binary** must produce an **empty plan** with the provider under test, for the same
+configuration, without any change to `required_providers`.
 
 `plan -detailed-exitcode` has to exit `0`. Exit code `2` (changes) and exit code `1` (error) fail the test.
+
+The fixtures are recorded with Terraform, so the provider address in their state is
+`registry.terraform.io/neuspaces/system`. Under OpenTofu the test moves the state to the OpenTofu registry host with
+`state replace-provider` before planning; the namespace and type stay the same, so this is a CLI difference and not
+a change of provider.
 
 ## Contents
 
@@ -82,14 +82,14 @@ upstream `v0.5.0` does not know. `record.sh` pins the provider to tag `v0.5.0`, 
 configuration is the only way to launder a real incompatibility, and that is precisely what is prohibited here. A
 configuration change is allowed only together with a documented change of the images, and then for every target.
 
-In `v0.7.0`, when `source` is updated in place instead of forcing a new resource, exactly one `update` of
-`system_file.source` becomes expected (owner decision 1 of the phase 1 plan). That exception is to be added as an
-allowlist in `compatSummarizeChanges` / the assertion of `compat_test.go` — not by re-recording the fixture.
+A move of `system_file` to the plugin framework cannot keep `etag=…` in `source` and therefore makes exactly one
+in-place `update` of `system_file.source` expected. Such an exception belongs in the assertion of `compat_test.go`
+as an explicit allowlist — never in a re-recorded fixture.
 
 ## Notes
 
 - The test does not run `terraform init`. The provider under test is wired in with `dev_overrides` and is not
-  published in any registry, so `init` fails to query `dorokhovich-com/system`; Terraform itself recommends skipping
+  published in any registry, so `init` fails to query `neuspaces/system`; Terraform itself recommends skipping
   `init` under development overrides. The reference configuration has no backend and no modules, so `apply`,
   `state replace-provider` and `plan` work without it.
 - The test plans with `-out=plan.out` and, on exit code 2, lists the changed resources from

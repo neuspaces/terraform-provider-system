@@ -14,35 +14,39 @@ import (
 )
 
 const (
-	// compatUpstreamAddr is the provider address which upstream v0.5.0 wrote into the state fixtures
-	compatUpstreamAddr = "registry.terraform.io/neuspaces/system"
+	// compatV050Addr is the provider address which v0.5.0 wrote into the state fixtures
+	compatV050Addr = "registry.terraform.io/neuspaces/system"
 
-	// compatForkNamespace is the namespace and type of the fork, without the registry host
-	compatForkNamespace = "dorokhovich-com/system"
+	// compatRegistryHost is the registry host recorded in the state fixtures
+	compatRegistryHost = "registry.terraform.io"
 
-	// compatUpstreamSource is the required_providers source of upstream v0.5.0 in the reference configuration
-	compatUpstreamSource = `source = "neuspaces/system"`
+	// compatNamespace is the namespace and type of the provider, without the registry host
+	compatNamespace = "neuspaces/system"
+
+	// compatSource is the required_providers source in the reference configuration
+	compatSource = `source = "neuspaces/system"`
 )
 
-// TestAccCompat_upstream_state_empty_plan verifies the drop-in contract (spec section 7.3): a state file written by
-// upstream v0.5.0 for the reference configuration yields an empty plan with this provider after
-// `terraform state replace-provider`.
+// TestAccCompat_v050_state_empty_plan verifies that a state file written by the released v0.5.0 provider for the
+// reference configuration yields an empty plan with the provider under test. It guards every change in this
+// repository against surprising existing users with a plan they did not ask for.
 //
 // Per target, the test
 //  1. creates the remote objects of the reference configuration with the provider under test from an empty state
 //     (directory bootstrap),
-//  2. drops the recorded upstream state into a second directory (directory migrate) and moves it to the provider
-//     address of the fork, which is the second of the two migration operations,
+//  2. drops the recorded v0.5.0 state into a second directory (directory migrate),
 //  3. requires `plan -detailed-exitcode` to exit 0; exit code 2 (changes present) and exit code 1 (error) fail the
 //     test, and
-//  4. destroys the objects through the migrated state, which exercises Delete on the migrated state.
+//  4. destroys the objects through that state, which exercises Delete on a state written by v0.5.0.
 //
 // The provider under test is wired in with dev_overrides, so the provider address compiled into the binary is
-// irrelevant and the registry host comes from the CLI (Terraform or OpenTofu).
+// irrelevant. The fixtures are recorded with Terraform, so their state refers to registry.terraform.io; under
+// OpenTofu the state is moved to the OpenTofu registry host first, which is a CLI difference and not a change of
+// the provider.
 //
 // Fixtures live in testdata/compat/<os>/ and are recorded with testdata/compat/record.sh. When the plan is not empty,
 // the fixture is not to be re-recorded: see testdata/compat/README.md.
-func TestAccCompat_upstream_state_empty_plan(t *testing.T) {
+func TestAccCompat_v050_state_empty_plan(t *testing.T) {
 	if os.Getenv(acctest.EnvTfAcc) == "" {
 		t.Skipf("acceptance test skipped because %s is not set", acctest.EnvTfAcc)
 	}
@@ -67,15 +71,15 @@ func TestAccCompat_upstream_state_empty_plan(t *testing.T) {
 		bootstrap := compatWorkdir(t, fixture, target)
 		migrate := compatWorkdir(t, fixture, target)
 
-		// migrated is true once the state in the migrate directory refers to the provider under test; before that a
-		// destroy from the migrate directory cannot work, because the provider of the state is not installed
-		migrated := false
+		// usable is true once the state in the migrate directory refers to a provider address which the CLI
+		// resolves to the provider under test; before that a destroy from that directory cannot work
+		usable := false
 
 		// Remove the remote objects at the end of the test, preferably through the migrated state
 		t.Cleanup(func() {
-			if migrated {
+			if usable {
 				if out, err := compatExec(cli.path, migrate, env, "destroy", "-auto-approve", "-input=false"); err != nil {
-					t.Errorf("destroy from migrated state failed: %v\n%s", err, out)
+					t.Errorf("destroy from the v0.5.0 state failed: %v\n%s", err, out)
 				} else {
 					return
 				}
@@ -94,10 +98,17 @@ func TestAccCompat_upstream_state_empty_plan(t *testing.T) {
 		// work without it.
 		compatRun(t, cli.path, bootstrap, env, "apply", "-auto-approve", "-input=false")
 
-		// 2. drop in the upstream state and move it to the provider address of the fork
+		// 2. drop in the state recorded with v0.5.0
+		//
+		// The fixtures are recorded with Terraform. Under OpenTofu the provider address in the state carries the
+		// wrong registry host, which `state replace-provider` corrects; the namespace and type stay the same.
 		compatCopy(t, state, filepath.Join(migrate, "terraform.tfstate"))
-		compatRun(t, cli.path, migrate, env, "state", "replace-provider", "-auto-approve", compatUpstreamAddr, cli.host+"/"+compatForkNamespace)
-		migrated = true
+
+		if cli.host != compatRegistryHost {
+			compatRun(t, cli.path, migrate, env, "state", "replace-provider", "-auto-approve", compatV050Addr, cli.host+"/"+compatNamespace)
+		}
+
+		usable = true
 
 		// 3. the plan must be empty
 		out, err := compatExec(cli.path, migrate, env, "plan", "-detailed-exitcode", "-input=false", "-no-color", "-out=plan.out")
@@ -111,10 +122,10 @@ func TestAccCompat_upstream_state_empty_plan(t *testing.T) {
 			// exit code 2: changes present; report them from the very plan which returned exit code 2
 			show, showErr := compatExec(cli.path, migrate, env, "show", "-json", "plan.out")
 			if showErr != nil {
-				t.Fatalf("plan is not empty after migrating the upstream v0.5.0 state, and `show -json plan.out` failed: %v\n%s\n%s", showErr, show, out)
+				t.Fatalf("plan is not empty for the state written by v0.5.0, and `show -json plan.out` failed: %v\n%s\n%s", showErr, show, out)
 			}
 
-			t.Fatalf("plan is not empty after migrating the upstream v0.5.0 state:\n%s\n%s", compatSummarizeChanges(show), out)
+			t.Fatalf("plan is not empty for the state written by v0.5.0:\n%s\n%s", compatSummarizeChanges(show), out)
 		default:
 			t.Fatalf("plan failed: %v\n%s", err, out)
 		}
@@ -180,7 +191,7 @@ func compatBuildProvider(t *testing.T) string {
 func compatEnv(t *testing.T, providerDir string) []string {
 	rc := filepath.Join(t.TempDir(), "terraformrc")
 
-	content := fmt.Sprintf("provider_installation {\n  dev_overrides { %q = %q }\n  direct {}\n}\n", compatForkNamespace, providerDir)
+	content := fmt.Sprintf("provider_installation {\n  dev_overrides { %q = %q }\n  direct {}\n}\n", compatNamespace, providerDir)
 	if err := os.WriteFile(rc, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -200,8 +211,8 @@ func compatEnv(t *testing.T, providerDir string) []string {
 	return env
 }
 
-// compatWorkdir copies the reference configuration of the fixture into a temporary directory, rewrites the provider
-// source to the fork, which is the first of the two migration operations, and writes the connection variables
+// compatWorkdir copies the reference configuration of the fixture into a temporary directory unchanged and writes the
+// connection variables
 func compatWorkdir(t *testing.T, fixture string, target acctest.Target) string {
 	dir := t.TempDir()
 
@@ -210,11 +221,10 @@ func compatWorkdir(t *testing.T, fixture string, target acctest.Target) string {
 		t.Fatal(err)
 	}
 
-	if !strings.Contains(string(main), compatUpstreamSource) {
-		t.Fatalf("expected %s in %s", compatUpstreamSource, filepath.Join(fixture, "main.tf"))
+	// Guards that the fixture is the reference configuration and that dev_overrides applies to the source it declares
+	if !strings.Contains(string(main), compatSource) {
+		t.Fatalf("expected %s in %s", compatSource, filepath.Join(fixture, "main.tf"))
 	}
-
-	main = []byte(strings.Replace(string(main), compatUpstreamSource, fmt.Sprintf("source = %q", compatForkNamespace), 1))
 
 	if err := os.WriteFile(filepath.Join(dir, "main.tf"), main, 0o644); err != nil {
 		t.Fatal(err)
@@ -272,10 +282,7 @@ func compatRun(t *testing.T, cli string, dir string, env []string, args ...strin
 	return out
 }
 
-// compatSummarizeChanges lists the resource changes of a `show -json` plan which are not a no-op.
-//
-// In v0.7.0, when `source` is updated in place instead of forcing a new resource, exactly one `update` of
-// system_file.source is expected and is to be allowed here (owner decision 1 of the phase 1 plan).
+// compatSummarizeChanges lists the resource changes of a `show -json` plan which are not a no-op
 func compatSummarizeChanges(showJSON string) string {
 	var plan struct {
 		ResourceChanges []struct {
