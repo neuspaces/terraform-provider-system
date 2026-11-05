@@ -1,5 +1,4 @@
 ---
-layout: ""
 page_title: "Provider: (Operating) System"
 description: |-
   The (Operating) System Provider allows managing files, directories, packages, and services on remote servers on operating system level agent-less via SSH.
@@ -28,6 +27,9 @@ provider "system" {
     port        = 22
     user        = "root"
     private_key = file("./root-ed25519")
+
+    # ssh-keyscan -t ed25519 10.12.13.14
+    host_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI..."
   }
 }
 
@@ -54,23 +56,27 @@ resource "system_service_systemd" "nginx" {
 
 The SSH connection to the remote system can be established
 
-- [directly](./docs/guides/ssh-connect#direct-connection), or
-- [indirectly via a bastion host](./docs/guides/ssh-connect#proxy-bastion-host-connection)
+- [directly](./guides/ssh-connect#direct-connection), or
+- [indirectly via a bastion host](./guides/ssh-connect#proxy-bastion-host-connection)
 
-Refer to the page on [SSH connection](./docs/guides/ssh-connect) for details and configuration examples.
+Refer to the page on [SSH connection](./guides/ssh-connect) for details and configuration examples.
 
 ## SSH authentication
 
 The provider supports the following SSH authentication methods.
 
-- [password](./docs/guides/ssh-auth#password)
-- [private key](./docs/guides/ssh-auth#private-key)
-- [ssh agent](./docs/guides/ssh-auth#agent)
+- [password](./guides/ssh-auth#password)
+- [private key](./guides/ssh-auth#private-key)
+- [ssh agent](./guides/ssh-auth#agent)
 - user certificate
 
 The provider supports privilege escalation on the remote system via sudo.
 
-Refer to the page on [SSH authentication](./docs/guides/ssh-auth) for details and configuration examples.
+Refer to the page on [SSH authentication](./guides/ssh-auth) for details and configuration examples.
+
+## Host key verification
+
+Since v0.6.0 the provider refuses to connect to a remote whose host key is not configured. Set `host_key` in the `ssh` block (and in `proxy.ssh` for a proxy) to the public key of the server, for example the output of `ssh-keyscan -t ed25519 <host>`. To keep the behavior of releases before v0.6.0 set `insecure_ignore_host_key = true` on the provider; the provider then warns on every run that the connection is not verified.
 
 ## SSH provisioner like configuration
 
@@ -102,6 +108,7 @@ provider "system" {
 ### Optional
 
 - `connection` (Block List, Max: 1) (see [below for nested schema](#nestedblock--connection))
+- `insecure_ignore_host_key` (Boolean) If `true`, the provider connects to a remote ssh server whose `host_key` is not configured without verifying its identity, as releases before v0.6.0 did, and reports a warning on every run. Since v0.6.0 the provider refuses to connect when `host_key` is not set and this attribute is `false`, because an unverified connection is open to man-in-the-middle attacks. Has no effect when `host_key` is set. Can be set with the environment variable `TF_PROVIDER_SYSTEM_INSECURE_IGNORE_HOST_KEY`, in which case the warning names the environment variable, because the configuration itself does not show that verification is disabled. Defaults to `false`.
 - `parallel` (Number) Maximum number of concurrent ssh connections to the remote. Increase the number of connections to parallelize interaction with the remote. Set to `0` to not limit the number of concurrent connections. Defaults to `1`.
 - `proxy` (Block List, Max: 1) (see [below for nested schema](#nestedblock--proxy))
 - `retry` (Boolean) If `true`, the provider retries failed connection attempts to the remote within the configured timeout. A constant backoff of 1s is planned between failed connection attempts. Defaults to `true`.

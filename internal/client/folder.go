@@ -17,6 +17,9 @@ type Folder struct {
 	Uid   int
 	Group string
 	Gid   int
+
+	// Overwrite controls whether Create adopts and overwrites a pre-existing directory at Path instead of failing
+	Overwrite bool
 }
 
 func newFolderFromStat(s *stat.Stat) *Folder {
@@ -98,6 +101,11 @@ func (c *folderClient) Create(ctx context.Context, f Folder) error {
 
 	createCmds = append(createCmds, &MkdirCommand{Path: pathSub, Mode: f.Mode})
 
+	if f.Overwrite && f.Mode != 0 {
+		// `mkdir -m` sets the mode of a directory it creates; an adopted directory keeps its own mode, so set it explicitly
+		createCmds = append(createCmds, &ChmodCommand{Path: pathSub, Mode: f.Mode})
+	}
+
 	if f.Uid != -1 {
 		createCmds = append(createCmds, &ChownCommand{Path: pathSub, User: strconv.Itoa(f.Uid)})
 	} else if f.User != "" {
@@ -110,7 +118,15 @@ func (c *folderClient) Create(ctx context.Context, f Folder) error {
 		createCmds = append(createCmds, &ChgrpCommand{Path: pathSub, Group: f.Group})
 	}
 
-	cmd := NewCommand(fmt.Sprintf(`_do() { path=$1; [ ! -e "${path}" ] || return %[2]d; { %[3]s; } || return 1; }; _do '%[1]s';`, f.Path, codeFolderPathExists, CompositeCommand(createCmds).Command()))
+	existsGuard := `[ ! -e "${path}" ]`
+	if f.Overwrite {
+		// Proceed if the path is absent or a directory; refuse any other entry (e.g. a regular file) to avoid overwriting the wrong thing
+		// Adopt only a directory that is not a symbolic link: `-e`/`-d` follow links, so a link
+		// (including a dangling one) would redirect the change to its target
+		existsGuard = `[ ! -L "${path}" ] && { [ ! -e "${path}" ] || [ -d "${path}" ]; }`
+	}
+
+	cmd := NewCommand(fmt.Sprintf(`_do() { path=$1; %[4]s || return %[2]d; { %[3]s; } || return 1; }; _do '%[1]s';`, f.Path, codeFolderPathExists, CompositeCommand(createCmds).Command(), existsGuard))
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
 		return errors.Join(ErrFolder, err)

@@ -32,6 +32,16 @@ resource "system_user" "johndoe" {
 }
 ```
 
+### Create the home directory
+
+```terraform
+resource "system_user" "johndoe" {
+  name        = "johndoe"
+  home        = "/home/johndoe"
+  create_home = true
+}
+```
+
 ### Explicit uid
 
 ```terraform
@@ -65,6 +75,7 @@ resource "system_user" "nginx" {
 This section describes general notes for using the `system_user` resource.
 
 - The resource uses and requires the commands `useradd`, `usermod`, `userdel`, and `getent` on the remote system.
+- `create_home` only applies when the user is created. The home directory is not removed when the user is destroyed (`userdel` without `-r`).
 
 {{ .SchemaMarkdown | trimspace }}
 

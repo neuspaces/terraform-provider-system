@@ -31,6 +31,7 @@ const (
 	resourceFileAttrSource           = "source"
 	resourceFileAttrMd5Sum           = "md5sum"
 	resourceFileAttrBasename         = "basename"
+	resourceFileAttrOverwrite        = "overwrite"
 )
 
 func resourceFile() *schema.Resource {
@@ -129,11 +130,10 @@ func resourceFile() *schema.Resource {
 				},
 			},
 			resourceFileAttrSource: {
-				Description: fmt.Sprintf("Path to a local file to upload as the file. Mutually exclusive with attributes `%[1]s` and `%[2]s`.", resourceFileAttrContent, resourceFileAttrContentSensitive, resourceFileAttrSource),
+				Description: fmt.Sprintf("Path to a local file to upload as the file. Mutually exclusive with attributes `%[1]s` and `%[2]s`. Changing the referenced content (detected by its etag) updates the remote file in place.", resourceFileAttrContent, resourceFileAttrContentSensitive, resourceFileAttrSource),
 				Type:        schema.TypeString,
 				Optional:    true,
 				Sensitive:   false,
-				ForceNew:    true,
 				ValidateDiagFunc: func(val interface{}, path cty.Path) diag.Diagnostics {
 					valUrl, err := validate.ExpectUrl(val, path)
 					if err != nil {
@@ -203,20 +203,27 @@ func resourceFile() *schema.Resource {
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
+			resourceFileAttrOverwrite: {
+				Description: fmt.Sprintf("If `true`, an existing regular file at `%[1]s` is adopted when the resource is created: its content (when `%[2]s`, `%[3]s` or `%[4]s` is set), permissions and ownership are set from this resource instead of failing with `file exists`. Any other kind of entry at `%[1]s` still fails, including a directory and a symbolic link, even when the link points to a regular file. Has no effect once the resource exists and is not read back from the remote system. Defaults to `false`.", resourceFileAttrPath, resourceFileAttrContent, resourceFileAttrContentSensitive, resourceFileAttrSource),
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+			},
 		},
 	}
 }
 
 func resourceFileGetResourceData(sources *source.Registry, d *schema.ResourceData) (*client.File, diag.Diagnostics) {
 	r := &client.File{
-		Path:    d.Get(resourceFileAttrPath).(string),
-		Mode:    0,
-		User:    "",
-		Uid:     -1,
-		Group:   "",
-		Gid:     -1,
-		Content: nil,
-		Md5Sum:  "",
+		Path:      d.Get(resourceFileAttrPath).(string),
+		Mode:      0,
+		User:      "",
+		Uid:       -1,
+		Group:     "",
+		Gid:       -1,
+		Content:   nil,
+		Md5Sum:    "",
+		Overwrite: d.Get(resourceFileAttrOverwrite).(bool),
 	}
 
 	if d.HasChange(resourceFileAttrMode) {
@@ -239,18 +246,13 @@ func resourceFileGetResourceData(sources *source.Registry, d *schema.ResourceDat
 		r.Gid = intOrDefault(optional(d.GetOk(resourceFileAttrGid)), -1)
 	}
 
-	if d.HasChange(resourceFileAttrContent) {
-		content := d.Get(resourceFileAttrContent).(string)
-		if content != "" {
-			r.Content = bytes.NewReader([]byte(content))
-		}
-	} else if d.HasChange(resourceFileAttrContentSensitive) {
-		content := d.Get(resourceFileAttrContentSensitive).(string)
-		if content != "" {
-			r.Content = bytes.NewReader([]byte(content))
-		}
-	} else if d.HasChange(resourceFileAttrSource) {
-		sourceUrlStr := d.Get(resourceFileAttrSource).(string)
+	// Pick the content source whose *new* value is non-empty; a change to an empty value means the attribute was removed
+	// or the configuration switched to another content attribute, and must not shadow the attribute which now carries content
+	if content := d.Get(resourceFileAttrContent).(string); d.HasChange(resourceFileAttrContent) && content != "" {
+		r.Content = bytes.NewReader([]byte(content))
+	} else if content := d.Get(resourceFileAttrContentSensitive).(string); d.HasChange(resourceFileAttrContentSensitive) && content != "" {
+		r.Content = bytes.NewReader([]byte(content))
+	} else if sourceUrlStr := d.Get(resourceFileAttrSource).(string); d.HasChange(resourceFileAttrSource) && sourceUrlStr != "" {
 		s, err := sources.Open(sourceUrlStr)
 		if err != nil {
 			return nil, diag.FromErr(err)
@@ -370,7 +372,7 @@ func resourceFileUpdateFactory(sources *source.Registry) schema.UpdateContextFun
 			return diagErr
 		}
 
-		c := client.NewFileClient(p.System)
+		c := client.NewFileClient(p.System, client.FileClientCompression(true))
 
 		r, diagErr := resourceFileGetResourceData(sources, d)
 		if diagErr != nil {
@@ -425,6 +427,10 @@ func resourceFileImportState(ctx context.Context, d *schema.ResourceData, m inte
 			return nil, fmt.Errorf("unexpected import id format")
 		}
 	}
+
+	// `overwrite` is a create-time flag which is not read back from the remote system;
+	// set it to its schema default so that imported state matches a configuration which omits it
+	_ = d.Set(resourceFileAttrOverwrite, false)
 
 	d.SetId(importIdParts[0])
 

@@ -1,16 +1,22 @@
 package provider_test
 
 import (
+	"context"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 	"github.com/neuspaces/terraform-provider-system/internal/acctest"
 	"github.com/neuspaces/terraform-provider-system/internal/acctest/tfbuild"
+	"github.com/neuspaces/terraform-provider-system/internal/client"
 	"github.com/neuspaces/terraform-provider-system/internal/lib/osrelease"
 	"github.com/neuspaces/terraform-provider-system/internal/provider"
+	"io"
+	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 )
@@ -824,4 +830,339 @@ func testAccFileBlock(name string, path string, attrs ...tfbuild.BlockElement) t
 	resourceAttrs = append(resourceAttrs, attrs...)
 
 	return tfbuild.Resource("system_file", name, resourceAttrs...)
+}
+
+// testAccPreCreateFile creates a file on the target outside of Terraform, as a pre-existing object to adopt
+func testAccPreCreateFile(t *testing.T, target acctest.Target, filePath string, content string) func() {
+	return func() {
+		err := client.NewFileClient(target.Provider.System).Create(context.Background(), client.File{
+			Path: filePath, Uid: -1, Gid: -1, Content: strings.NewReader(content),
+		})
+		if err != nil {
+			t.Fatalf("pre-create %s: %v", filePath, err)
+		}
+	}
+}
+
+// testAccCheckRemoteFileContent reads the file on the target over ssh and compares its content
+func testAccCheckRemoteFileContent(target acctest.Target, filePath string, expected string) resource.TestCheckFunc {
+	return func(_ *terraform.State) error {
+		f, err := client.NewFileClient(target.Provider.System, client.FileClientIncludeContent(true)).Get(context.Background(), filePath)
+		if err != nil {
+			return err
+		}
+		b, err := io.ReadAll(f.Content)
+		if err != nil {
+			return err
+		}
+		if string(b) != expected {
+			return fmt.Errorf("remote file %s: expected content %q, got %q", filePath, expected, string(b))
+		}
+		return nil
+	}
+}
+
+func TestAccFile_overwrite_existing(t *testing.T) {
+	testConfig := newTestFileConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+		filePath := testRunFilePath(target, testConfig.fileName)
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					PreConfig: testAccPreCreateFile(t, target, filePath, "pre-existing content"),
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("test", filePath,
+							tfbuild.AttributeString("mode", "600"),
+							tfbuild.AttributeString("content", "overwritten content!"),
+							tfbuild.AttributeBool("overwrite", true),
+						),
+					)),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("system_file.test", "id", filePath),
+						resource.TestCheckResourceAttr("system_file.test", "overwrite", "true"),
+						resource.TestCheckResourceAttr("system_file.test", "mode", "600"),
+						resource.TestCheckResourceAttr("system_file.test", "content", "overwritten content!"),
+						testAccCheckRemoteFileContent(target, filePath, "overwritten content!"),
+					),
+				},
+			},
+		})
+	})
+}
+
+func TestAccFile_overwrite_fail_type_mismatch(t *testing.T) {
+	testConfig := newTestFileConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+		filePath := testRunFilePath(target, testConfig.fileName)
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					PreConfig: func() {
+						err := client.NewFolderClient(target.Provider.System).Create(context.Background(), client.Folder{Path: filePath, Uid: -1, Gid: -1})
+						if err != nil {
+							t.Fatalf("pre-create folder %s: %v", filePath, err)
+						}
+					},
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("test", filePath,
+							tfbuild.AttributeString("content", "must not be written"),
+							tfbuild.AttributeBool("overwrite", true),
+						),
+					)),
+					ExpectError: regexp.MustCompile(`file resource\s+file exists`),
+				},
+			},
+		})
+	})
+}
+
+func TestAccFile_overwrite_default_false_fails_on_existing(t *testing.T) {
+	testConfig := newTestFileConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+		filePath := testRunFilePath(target, testConfig.fileName)
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					PreConfig: testAccPreCreateFile(t, target, filePath, "pre-existing content"),
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("test", filePath, tfbuild.AttributeString("content", "x")),
+					)),
+					ExpectError: regexp.MustCompile(`file resource\s+file exists`),
+				},
+			},
+		})
+	})
+}
+
+// testAccFileRemoteSh runs a shell snippet on the target and returns trimmed stdout
+func testAccFileRemoteSh(target acctest.Target, script string) (string, error) {
+	res, err := client.ExecuteCommand(context.Background(), target.Provider.System, client.NewCommand(script))
+	if err != nil {
+		return "", err
+	}
+	if res.ExitCode != 0 {
+		return "", fmt.Errorf("remote command failed (%d): %s", res.ExitCode, string(res.Stderr))
+	}
+	return strings.TrimSpace(string(res.Stdout)), nil
+}
+
+func TestAccFile_source_update_in_place(t *testing.T) {
+	testConfig := newTestFileConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+		filePath := testRunFilePath(target, testConfig.fileName)
+		linkPath := filePath + ".hardlink"
+		localSource := filepath.Join(t.TempDir(), "source.txt")
+		if err := os.WriteFile(localSource, []byte("content A\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		config := func() string {
+			return tfbuild.FileString(tfbuild.File(
+				acctest.ProviderConfigBlock(target.Configs.Default()),
+				testAccFileBlock("test", filePath,
+					tfbuild.AttributeString("mode", "644"),
+					tfbuild.AttributeString("source", localSource),
+				),
+			))
+		}
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: config(),
+					Check: resource.ComposeTestCheckFunc(
+						// printf 'content A\n' | openssl dgst -binary -md5 | openssl base64
+						resource.TestCheckResourceAttr("system_file.test", "md5sum", "1UlFuYpYWUrlqNhcarkN1Q=="),
+						// Hard-link the remote file: an in-place rewrite keeps the inode, so the link follows the new content;
+						// a delete+create would leave the link with the old content and a link count of 1.
+						func(_ *terraform.State) error {
+							_, err := testAccFileRemoteSh(target, fmt.Sprintf(`ln '%s' '%s' && stat -c %%h '%s'`, filePath, linkPath, filePath))
+							return err
+						},
+					),
+				},
+				{
+					PreConfig: func() {
+						if err := os.WriteFile(localSource, []byte("content B\n"), 0o644); err != nil {
+							t.Fatal(err)
+						}
+					},
+					Config: config(),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("system_file.test", "id", filePath),
+						// printf 'content B\n' | openssl dgst -binary -md5 | openssl base64
+						resource.TestCheckResourceAttr("system_file.test", "md5sum", "W5nAopCKD+3fpMZCY7KW/Q=="),
+						testAccCheckRemoteFileContent(target, filePath, "content B\n"),
+						func(_ *terraform.State) error {
+							out, err := testAccFileRemoteSh(target, fmt.Sprintf(`cat '%s'; stat -c %%h '%s'`, linkPath, filePath))
+							if err != nil {
+								return err
+							}
+							if out != "content B\n2" && out != "content B\n\n2" {
+								return fmt.Errorf("expected in-place update (hard link shares content B, link count 2), got: %q", out)
+							}
+							return nil
+						},
+					),
+				},
+			},
+		})
+	})
+}
+
+func TestAccFile_update_content_to_source(t *testing.T) {
+	testConfig := newTestFileConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+		filePath := testRunFilePath(target, testConfig.fileName)
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("test", filePath, tfbuild.AttributeString("content", "hello world!")),
+					)),
+					Check: resource.TestCheckResourceAttr("system_file.test", "md5sum", "/D/5joxqDTCH1RXARz+Gdw=="),
+				},
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("test", filePath, tfbuild.AttributeString("source", "./test/hello-universe.txt")),
+					)),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("system_file.test", "md5sum", "w0Y+MwVOASL+sUYDnI0Eww=="),
+						resource.TestCheckResourceAttr("system_file.test", "content", ""),
+					),
+				},
+			},
+		})
+	})
+}
+
+func TestAccFile_update_source_removed(t *testing.T) {
+	testConfig := newTestFileConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+		filePath := testRunFilePath(target, testConfig.fileName)
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("test", filePath, tfbuild.AttributeString("source", "./test/hello-world.txt")),
+					)),
+					Check: resource.TestCheckResourceAttr("system_file.test", "md5sum", "/D/5joxqDTCH1RXARz+Gdw=="),
+				},
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("test", filePath, tfbuild.AttributeString("mode", "600")),
+					)),
+					Check: resource.ComposeTestCheckFunc(
+						// the remote file keeps its content; only mode changes
+						resource.TestCheckResourceAttr("system_file.test", "md5sum", "/D/5joxqDTCH1RXARz+Gdw=="),
+						resource.TestCheckResourceAttr("system_file.test", "mode", "600"),
+					),
+				},
+			},
+		})
+	})
+}
+
+func TestAccFile_overwrite_fail_symlink(t *testing.T) {
+	testConfig := newTestFileConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+		filePath := testRunFilePath(target, testConfig.fileName)
+		linkTargetPath := filePath + ".target"
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					PreConfig: func() {
+						// `path` is a symbolic link to a regular file elsewhere; `[ -e ]` and `[ -f ]` follow the link,
+						// so without an explicit check for a link the content would be written to the link target
+						if _, err := testAccFileRemoteSh(target, fmt.Sprintf(`printf 'link target content' > '%[1]s' && ln -s '%[1]s' '%[2]s'`, linkTargetPath, filePath)); err != nil {
+							t.Fatalf("pre-create symlink %s: %v", filePath, err)
+						}
+					},
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("test", filePath,
+							tfbuild.AttributeString("mode", "600"),
+							tfbuild.AttributeString("content", "must not be written"),
+							tfbuild.AttributeBool("overwrite", true),
+						),
+					)),
+					ExpectError: regexp.MustCompile(`file resource\s+file exists`),
+				},
+			},
+		})
+
+		// the link target must be untouched: nothing may be written through the symbolic link
+		if err := testAccCheckRemoteFileContent(target, linkTargetPath, "link target content")(nil); err != nil {
+			t.Error(err)
+		}
+	})
+}
+
+func TestAccFile_update_content_to_content_sensitive(t *testing.T) {
+	testConfig := newTestFileConfig()
+
+	acctest.Current().Targets.Foreach(t, func(t *testing.T, target acctest.Target) {
+		t.Parallel()
+		filePath := testRunFilePath(target, testConfig.fileName)
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: acctest.ProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("test", filePath, tfbuild.AttributeString("content", "hello world!")),
+					)),
+					// echo -n 'hello world!' | openssl dgst -binary -md5 | openssl base64
+					Check: resource.TestCheckResourceAttr("system_file.test", "md5sum", "/D/5joxqDTCH1RXARz+Gdw=="),
+				},
+				{
+					Config: tfbuild.FileString(tfbuild.File(
+						acctest.ProviderConfigBlock(target.Configs.Default()),
+						testAccFileBlock("test", filePath, tfbuild.AttributeString("content_sensitive", "hello s3cr3t!")),
+					)),
+					Check: resource.ComposeTestCheckFunc(
+						// echo -n 'hello s3cr3t!' | openssl dgst -binary -md5 | openssl base64
+						resource.TestCheckResourceAttr("system_file.test", "md5sum", "su6hNsFeImKJgWRpqtfzZw=="),
+						resource.TestCheckResourceAttr("system_file.test", "content", ""),
+						testAccCheckRemoteFileContent(target, filePath, "hello s3cr3t!"),
+					),
+				},
+			},
+		})
+	})
 }

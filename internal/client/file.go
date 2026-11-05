@@ -27,6 +27,9 @@ type File struct {
 	// Content optionally contains the file contents when enabled with FileClientIncludeContent
 	Content io.Reader
 	Md5Sum  string
+
+	// Overwrite controls whether Create adopts and overwrites a pre-existing regular file at Path instead of failing
+	Overwrite bool
 }
 
 func newFileFromStat(s *stat.Stat) *File {
@@ -209,7 +212,15 @@ func (c *fileClient) Create(ctx context.Context, f File) error {
 		createCmds = append(createCmds, &ChgrpCommand{Path: pathSub, Group: f.Group})
 	}
 
-	cmd := NewInputCommand(fmt.Sprintf(`_do() { path=$1; [ ! -e "${path}" ] || return %[2]d; { %[3]s; } || return 1; }; _do '%[1]s';`, f.Path, codeFilePathExists, CompositeCommand(createCmds).Command()), createCmdIn)
+	existsGuard := `[ ! -e "${path}" ]`
+	if f.Overwrite {
+		// Proceed if the path is absent or a regular file; refuse any other entry (e.g. a directory) to avoid overwriting the wrong thing
+		// Adopt only a regular file that is not a symbolic link: `-e`/`-f` follow links, so a link
+		// (including a dangling one) would redirect the write to its target
+		existsGuard = `[ ! -L "${path}" ] && { [ ! -e "${path}" ] || [ -f "${path}" ]; }`
+	}
+
+	cmd := NewInputCommand(fmt.Sprintf(`_do() { path=$1; %[4]s || return %[2]d; { %[3]s; } || return 1; }; _do '%[1]s';`, f.Path, codeFilePathExists, CompositeCommand(createCmds).Command(), existsGuard), createCmdIn)
 	res, err := ExecuteCommand(ctx, c.s, cmd)
 	if err != nil {
 		return errors.Join(ErrFile, err)

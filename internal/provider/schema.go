@@ -5,6 +5,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/neuspaces/terraform-provider-system/internal/validate"
+	"os"
+	"strings"
 	"time"
 )
 
@@ -19,6 +21,12 @@ type Schema struct {
 	Retry    bool
 
 	Sudo bool
+
+	InsecureIgnoreHostKey bool
+
+	// InsecureIgnoreHostKeyFromEnv is true if InsecureIgnoreHostKey originates from the
+	// environment variable SchemaEnvInsecureIgnoreHostKey instead of the provider configuration
+	InsecureIgnoreHostKeyFromEnv bool
 }
 
 // expandProviderSchema returns a Schema from schema.ResourceData of the provider configuration
@@ -81,12 +89,42 @@ func expandProviderSchema(d *schema.ResourceData) (*Schema, error) {
 
 	s.Sudo = d.Get(SchemaAttrSudo).(bool)
 
+	s.InsecureIgnoreHostKey = d.Get(SchemaAttrInsecureIgnoreHostKey).(bool)
+	if s.InsecureIgnoreHostKey {
+		s.InsecureIgnoreHostKeyFromEnv = insecureIgnoreHostKeyFromEnv(d)
+	}
+
 	return s, nil
 }
 
 const (
 	SchemaEnvPrefix = "TF_PROVIDER_SYSTEM_"
 )
+
+// SchemaEnvInsecureIgnoreHostKey is the environment variable which backs SchemaAttrInsecureIgnoreHostKey.
+// Derived from the attribute name so that the name reported in diagnostics cannot drift from the name
+// schemaEnvDefaultFunc actually reads.
+var SchemaEnvInsecureIgnoreHostKey = SchemaEnvPrefix + strings.ToUpper(SchemaAttrInsecureIgnoreHostKey)
+
+// insecureIgnoreHostKeyFromEnv reports whether the value of SchemaAttrInsecureIgnoreHostKey originates
+// from the environment variable SchemaEnvInsecureIgnoreHostKey rather than from the provider
+// configuration. An attribute which is null in the raw configuration but non-zero in the resource data
+// can only have come from its DefaultFunc, which reads the environment variable.
+//
+// GetRawConfig is not populated on every code path: (helper/schema.Provider).Configure copies the
+// *terraform.ResourceConfig into the ResourceData, but terraform.NewResourceConfigRaw leaves CtyValue
+// null, so GetRawConfig returns a null object there. Calling GetAttr on a null object value panics,
+// hence the explicit guard and the fallback on the environment variable itself, which applies the same
+// "non-empty value wins" rule as schema.EnvDefaultFunc.
+func insecureIgnoreHostKeyFromEnv(d *schema.ResourceData) bool {
+	rawConfig := d.GetRawConfig()
+
+	if rawConfig.IsNull() || !rawConfig.IsKnown() || !rawConfig.Type().IsObjectType() || !rawConfig.Type().HasAttribute(SchemaAttrInsecureIgnoreHostKey) {
+		return os.Getenv(SchemaEnvInsecureIgnoreHostKey) != ""
+	}
+
+	return rawConfig.GetAttr(SchemaAttrInsecureIgnoreHostKey).IsNull()
+}
 
 const (
 	SchemaAttrConnection = "connection"
@@ -100,6 +138,8 @@ const (
 
 	SchemaAttrShell = "shell"
 	SchemaAttrSudo  = "sudo"
+
+	SchemaAttrInsecureIgnoreHostKey = "insecure_ignore_host_key"
 )
 
 // providerSchema returns the provider schema
@@ -176,6 +216,12 @@ func providerSchema() map[string]*schema.Schema {
 			Type:        schema.TypeBool,
 			Optional:    true,
 			DefaultFunc: schemaEnvDefaultFunc(SchemaAttrSudo, SchemaEnvPrefix, false),
+		},
+		SchemaAttrInsecureIgnoreHostKey: {
+			Description: fmt.Sprintf("If `true`, the provider connects to a remote ssh server whose `%[1]s` is not configured without verifying its identity, as releases before v0.6.0 did, and reports a warning on every run. Since v0.6.0 the provider refuses to connect when `%[1]s` is not set and this attribute is `false`, because an unverified connection is open to man-in-the-middle attacks. Has no effect when `%[1]s` is set. Can be set with the environment variable `%[2]s`, in which case the warning names the environment variable, because the configuration itself does not show that verification is disabled. Defaults to `false`.", SchemaAttrSshHostKey, SchemaEnvInsecureIgnoreHostKey),
+			Type:        schema.TypeBool,
+			Optional:    true,
+			DefaultFunc: schemaEnvDefaultFunc(SchemaAttrInsecureIgnoreHostKey, SchemaEnvPrefix, false),
 		},
 	}
 }

@@ -48,4 +48,4 @@ Responses to the most frequently asked questions can be found in the [FAQ](https
 
 ## Requirements
 
-- [Terraform](https://www.terraform.io/downloads.html) 0.12+
+- [Terraform](https://www.terraform.io/downloads.html) 1.6+ or [OpenTofu](https://opentofu.org/docs/intro/install/) 1.6+
