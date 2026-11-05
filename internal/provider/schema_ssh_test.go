@@ -122,7 +122,19 @@ func TestAccProviderConnect_SshPassword(t *testing.T) {
 				),
 			)
 
-			testAccProviderConnectTestExpectError(t, providerConfig, regexp.MustCompile(regexp.QuoteMeta(`ssh: handshake failed: ssh: unable to authenticate`)))
+			// The provider offers the password as both the password and the keyboard-interactive method, so a
+			// rejected password produces one of two errors, depending on the sshd of the target.
+			//
+			// A target whose sshd answers the keyboard-interactive request with a challenge (any sshd built with
+			// PAM, such as the Debian and Fedora targets) reports the exhausted method list. A target whose sshd
+			// answers it with USERAUTH_FAILURE and no challenge at all (an sshd built without PAM, such as the
+			// Alpine target) makes golang.org/x/crypto/ssh abort the authentication loop with
+			// `unexpectedMessageError(msgUserAuthInfoRequest, msgUserAuthFailure)` instead, which it has done
+			// since it started to require a challenge before accepting the result of the method
+			// (`gotUserAuthInfoRequest` in ssh/client_auth.go; x/crypto v0.23.0 had no such requirement).
+			//
+			// Either way the handshake fails and the wrong password is refused, which is what this test asserts.
+			testAccProviderConnectTestExpectError(t, providerConfig, regexp.MustCompile(`ssh: handshake failed: ssh: (unable to authenticate|unexpected message type 51 \(expected 60\))`))
 		})
 	})
 
